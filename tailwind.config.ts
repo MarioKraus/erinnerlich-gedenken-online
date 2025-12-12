@@ -33,7 +33,7 @@ export default {
           warm: "hsl(var(--memorial-warm))",
           stone: "hsl(var(--memorial-stone))",
           slate: "hsl(var(--memorial-slate))",
-          violet: "hsl(var(--memorial-violet))",
+          forest: "hsl(var(--memorial-forest))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
