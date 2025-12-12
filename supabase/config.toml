@@ -1,1 +1,7 @@
 project_id = "mayoefzlcnqbukodziyt"
+
+[functions.firecrawl-scrape]
+verify_jwt = false
+
+[functions.scrape-obituaries]
+verify_jwt = false
