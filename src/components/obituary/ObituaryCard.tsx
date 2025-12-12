@@ -43,7 +43,7 @@ const ObituaryCard = ({ obituary }: ObituaryCardProps) => {
       to={`/traueranzeige/${obituary.id}`}
       className="group block"
     >
-      <article className="memorial-card h-full transition-all duration-300 hover:shadow-soft hover:border-memorial-stone/30">
+      <article className="bg-card rounded-lg border border-border p-5 h-full transition-all duration-300 hover:shadow-lg hover:border-primary/30">
         <div className="flex gap-4">
           {obituary.photo_url ? (
             <div className="flex-shrink-0 w-20 h-24 rounded overflow-hidden bg-memorial-warm">
