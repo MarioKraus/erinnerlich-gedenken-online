@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,6 +36,8 @@ const Admin = () => {
   const { toast } = useToast();
   const [isScrapingAll, setIsScrapingAll] = useState(false);
   const [scrapingSource, setScrapingSource] = useState<string | null>(null);
+  const [totalExpanded, setTotalExpanded] = useState(false);
+  const [todayExpanded, setTodayExpanded] = useState(false);
 
   const { data: obituaryStats, refetch: refetchStats } = useQuery({
     queryKey: ["obituary-stats"],
@@ -54,10 +58,25 @@ const Admin = () => {
         .order("created_at", { ascending: false })
         .limit(10);
 
+      const { data: allObituaries } = await supabase
+        .from("obituaries")
+        .select("id, name, source, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      const { data: todayObituaries } = await supabase
+        .from("obituaries")
+        .select("id, name, source, created_at")
+        .gte("created_at", today)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
       return {
         total: total || 0,
         today: todayCount || 0,
         recent: recentObituaries || [],
+        allList: allObituaries || [],
+        todayList: todayObituaries || [],
       };
     },
   });
@@ -116,6 +135,33 @@ const Admin = () => {
     }
   };
 
+  const ObituaryListItem = ({ obituary }: { obituary: { id: string; name: string; source: string | null; created_at: string } }) => (
+    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+      <div className="flex-1 min-w-0">
+        <Link 
+          to={`/traueranzeige/${obituary.id}`}
+          className="font-medium text-foreground hover:text-primary transition-colors hover:underline"
+        >
+          {obituary.name}
+        </Link>
+        <p className="text-sm text-muted-foreground">
+          {obituary.source || "Unbekannte Quelle"}
+        </p>
+      </div>
+      <div className="flex items-center gap-3">
+        <p className="text-sm text-muted-foreground whitespace-nowrap">
+          {new Date(obituary.created_at).toLocaleString("de-DE")}
+        </p>
+        <Link 
+          to={`/traueranzeige/${obituary.id}`}
+          className="text-muted-foreground hover:text-primary transition-colors"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Link>
+      </div>
+    </div>
+  );
+
   return (
     <Layout>
       <Helmet>
@@ -135,27 +181,67 @@ const Admin = () => {
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Gesamt</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{obituaryStats?.total || 0}</div>
-              <p className="text-xs text-muted-foreground">Traueranzeigen in der Datenbank</p>
-            </CardContent>
-          </Card>
+          <Collapsible open={totalExpanded} onOpenChange={setTotalExpanded}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Gesamt</CardTitle>
+                <Database className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <CollapsibleTrigger className="w-full text-left group">
+                  <div className="flex items-center gap-2">
+                    <div className="text-2xl font-bold text-primary cursor-pointer hover:underline">
+                      {obituaryStats?.total || 0}
+                    </div>
+                    {totalExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Traueranzeigen in der Datenbank (klicken zum Anzeigen)</p>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+                  {obituaryStats?.allList?.map((obituary) => (
+                    <ObituaryListItem key={obituary.id} obituary={obituary} />
+                  ))}
+                </CollapsibleContent>
+              </CardContent>
+            </Card>
+          </Collapsible>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Heute</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{obituaryStats?.today || 0}</div>
-              <p className="text-xs text-muted-foreground">Neue Einträge heute</p>
-            </CardContent>
-          </Card>
+          <Collapsible open={todayExpanded} onOpenChange={setTodayExpanded}>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Heute</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <CollapsibleTrigger className="w-full text-left group">
+                  <div className="flex items-center gap-2">
+                    <div className="text-2xl font-bold text-primary cursor-pointer hover:underline">
+                      {obituaryStats?.today || 0}
+                    </div>
+                    {todayExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Neue Einträge heute (klicken zum Anzeigen)</p>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+                  {obituaryStats?.todayList && obituaryStats.todayList.length > 0 ? (
+                    obituaryStats.todayList.map((obituary) => (
+                      <ObituaryListItem key={obituary.id} obituary={obituary} />
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground py-2">Noch keine Einträge heute.</p>
+                  )}
+                </CollapsibleContent>
+              </CardContent>
+            </Card>
+          </Collapsible>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -207,12 +293,27 @@ const Admin = () => {
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               {NEWSPAPER_SOURCES.map((source) => (
                 <Card key={source.id} className="p-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-sm">{source.name}</p>
-                      <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                        {source.url}
-                      </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <a 
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-sm hover:text-primary hover:underline transition-colors"
+                      >
+                        {source.name}
+                      </a>
+                      <div className="flex items-center gap-1">
+                        <a 
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-muted-foreground truncate hover:text-primary transition-colors flex items-center gap-1"
+                        >
+                          <span className="truncate max-w-[120px]">{source.url}</span>
+                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                        </a>
+                      </div>
                     </div>
                     <Button
                       size="sm"
@@ -245,20 +346,7 @@ const Admin = () => {
             {obituaryStats?.recent && obituaryStats.recent.length > 0 ? (
               <div className="space-y-2">
                 {obituaryStats.recent.map((obituary) => (
-                  <div
-                    key={obituary.id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{obituary.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {obituary.source || "Unbekannte Quelle"}
-                      </p>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(obituary.created_at).toLocaleString("de-DE")}
-                    </p>
-                  </div>
+                  <ObituaryListItem key={obituary.id} obituary={obituary} />
                 ))}
               </div>
             ) : (
