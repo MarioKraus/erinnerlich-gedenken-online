@@ -10,14 +10,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const NEWSPAPER_SOURCES = [
+  // Nationale Portale
+  { id: "trauer-de", name: "Trauer.de", url: "https://www.trauer.de" },
+  { id: "trauer-anzeigen", name: "Trauer-Anzeigen.de", url: "https://trauer-anzeigen.de" },
+  
+  // Große Zeitungen
   { id: "sueddeutsche", name: "Süddeutsche Zeitung", url: "https://trauer.sueddeutsche.de" },
-  { id: "faz", name: "Frankfurter Allgemeine", url: "https://trauer.faz.net" },
-  { id: "zeit", name: "Die Zeit", url: "https://trauer.zeit.de" },
-  { id: "spiegel", name: "Der Spiegel", url: "https://trauer.spiegel.de" },
-  { id: "welt", name: "Die Welt", url: "https://trauer.welt.de" },
+  { id: "faz", name: "Frankfurter Allgemeine", url: "https://lebenswege.faz.net" },
   { id: "tagesspiegel", name: "Tagesspiegel", url: "https://trauer.tagesspiegel.de" },
-  { id: "handelsblatt", name: "Handelsblatt", url: "https://trauer.handelsblatt.com" },
-  { id: "focus", name: "Focus", url: "https://trauer.focus.de" },
+  { id: "merkur", name: "Münchner Merkur", url: "https://trauer.merkur.de" },
+  
+  // Regionale Portale
+  { id: "hz", name: "Heidenheimer Zeitung", url: "https://trauer.hz.de" },
+  { id: "rz", name: "Rhein-Zeitung", url: "https://rz-trauer.de" },
+  { id: "gn", name: "Grafschafter Nachrichten", url: "https://trauer.gn-online.de" },
+  { id: "ok", name: "Oberhessische Presse", url: "https://www.ok-trauer.de" },
+  
+  // Gedenkportale
+  { id: "viternity", name: "Viternity", url: "https://www.viternity.org" },
 ];
 
 const Admin = () => {
