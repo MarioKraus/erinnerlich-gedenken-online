@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Search from "./pages/Search";
 import ObituaryDetail from "./pages/ObituaryDetail";
 import CreateObituary from "./pages/CreateObituary";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
             <Route path="/suche" element={<Search />} />
             <Route path="/traueranzeige/:id" element={<ObituaryDetail />} />
             <Route path="/anzeige-erstellen" element={<CreateObituary />} />
+            <Route path="/admin" element={<Admin />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
