@@ -5,23 +5,26 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// German newspaper obituary URLs - these would need to be updated with actual URLs
+// Real German obituary portal URLs
 const OBITUARY_SOURCES = [
-  {
-    name: 'Süddeutsche Zeitung',
-    url: 'https://trauer.sueddeutsche.de/',
-    selector: '.traueranzeige'
-  },
-  {
-    name: 'FAZ',
-    url: 'https://trauer.faz.net/',
-    selector: '.obituary'
-  },
-  {
-    name: 'Die Zeit',
-    url: 'https://trauer.zeit.de/',
-    selector: '.traueranzeige'
-  }
+  // National portals
+  { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-aus-deutschland' },
+  { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
+  
+  // Major newspapers
+  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/' },
+  { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
+  { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
+  
+  // Regional portals
+  { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
+  { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
+  { id: 'gn', name: 'Grafschafter Nachrichten', url: 'https://trauer.gn-online.de/' },
+  { id: 'ok', name: 'Oberhessische Presse', url: 'https://www.ok-trauer.de/' },
+  
+  // Memorial portals
+  { id: 'viternity', name: 'Viternity', url: 'https://www.viternity.org/' },
 ];
 
 interface ScrapedObituary {
