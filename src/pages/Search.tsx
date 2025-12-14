@@ -30,7 +30,8 @@ const Search = () => {
         .select("*", { count: "exact" });
 
       if (nameQuery) {
-        query = query.ilike("name", `%${nameQuery}%`);
+        // Search in both name AND location fields for flexibility
+        query = query.or(`name.ilike.%${nameQuery}%,location.ilike.%${nameQuery}%`);
       }
       if (locationQuery) {
         query = query.ilike("location", `%${locationQuery}%`);
