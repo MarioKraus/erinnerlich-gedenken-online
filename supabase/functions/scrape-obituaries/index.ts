@@ -66,89 +66,169 @@ async function scrapeUrl(url: string, apiKey: string): Promise<any> {
 
 function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedObituary[] {
   const obituaries: ScrapedObituary[] = [];
+  const today = new Date().toISOString().split('T')[0];
+  const seenNames = new Set<string>();
   
-  // Parse death dates - common German formats
-  const datePatterns = [
-    /(\d{1,2})\.(\d{1,2})\.(\d{4})/g, // DD.MM.YYYY
-    /(\d{1,2})\.\s*(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s*(\d{4})/gi
-  ];
-
-  // Extract names - typically in bold or headers
-  const namePattern = /(?:^|\n)(?:#+\s*)?[\*\*]?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)[\*\*]?/g;
+  // Blacklist of non-name strings
+  const blacklist = ['prominente trauerfälle', 'aktuelle traueranzeigen', 'weitere trauerfälle', 
+                     'neueste kerzen', 'unsere trauerchats', 'trauerhilfe', 'trauervideos'];
   
-  // Simple extraction - in production this would be more sophisticated
-  const lines = markdown.split('\n');
-  let currentObituary: Partial<ScrapedObituary> = {};
-  
-  for (const line of lines) {
-    // Look for name patterns (typically bold or in headers)
-    const nameMatch = line.match(/[\*\*#]+\s*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)+)/);
-    if (nameMatch) {
-      // Save previous if exists
-      if (currentObituary.name && currentObituary.death_date) {
-        obituaries.push({
-          name: currentObituary.name,
-          birth_date: currentObituary.birth_date || null,
-          death_date: currentObituary.death_date,
-          location: currentObituary.location || null,
-          text: currentObituary.text || null,
-          source,
-          photo_url: null
-        });
-      }
-      currentObituary = { name: nameMatch[1], source };
+  // Pattern 1: "Traueranzeige von [Name] von [source]" format (merkur, many regional papers)
+  const traueranzeigenPattern = /Traueranzeige von\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s+von\s+\w+/gi;
+  let match;
+  while ((match = traueranzeigenPattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    if (name && !seenNames.has(name.toLowerCase()) && !blacklist.includes(name.toLowerCase())) {
+      seenNames.add(name.toLowerCase());
+      obituaries.push({
+        name,
+        birth_date: null,
+        death_date: today,
+        location: extractLocationFromSource(source),
+        text: null,
+        source,
+        photo_url: null
+      });
     }
+  }
+  
+  // Pattern 2: Markdown link with name in alt text like [![Name](...)]
+  const imgLinkPattern = /\[!\[([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\]/g;
+  while ((match = imgLinkPattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    // Skip generic names like "Kerze von..." or "Bild vom..."
+    if (name && !seenNames.has(name.toLowerCase()) && 
+        !name.toLowerCase().includes('kerze') && 
+        !name.toLowerCase().includes('bild')) {
+      seenNames.add(name.toLowerCase());
+      obituaries.push({
+        name,
+        birth_date: null,
+        death_date: today,
+        location: extractLocationFromSource(source),
+        text: null,
+        source,
+        photo_url: null
+      });
+    }
+  }
 
-    // Look for dates
-    const dateMatch = line.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    if (dateMatch) {
-      const [, day, month, year] = dateMatch;
-      const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  // Pattern 3: Bold names with dates (common format: **Name** *01.01.1940 - †14.12.2025)
+  const boldNamePattern = /\*\*([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\*\*/g;
+  while ((match = boldNamePattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    if (name && !seenNames.has(name.toLowerCase()) && name.split(' ').length >= 2) {
+      // Try to find dates near this name
+      const surroundingText = markdown.substring(
+        Math.max(0, match.index - 50), 
+        Math.min(markdown.length, match.index + 200)
+      );
+      const deathDate = extractDeathDate(surroundingText) || today;
+      const birthDate = extractBirthDate(surroundingText);
       
-      // Check if this is birth or death date based on context
-      if (line.toLowerCase().includes('geboren') || line.includes('*')) {
-        currentObituary.birth_date = dateStr;
-      } else if (line.toLowerCase().includes('gestorben') || line.includes('†') || line.includes('verstorben')) {
-        currentObituary.death_date = dateStr;
-      } else if (!currentObituary.death_date) {
-        // Default to death date if unclear
-        currentObituary.death_date = dateStr;
-      }
+      seenNames.add(name.toLowerCase());
+      obituaries.push({
+        name,
+        birth_date: birthDate,
+        death_date: deathDate,
+        location: extractLocationFromText(surroundingText) || extractLocationFromSource(source),
+        text: null,
+        source,
+        photo_url: null
+      });
     }
-
-    // Look for location
-    const locationPatterns = [
-      /(?:aus|in|wohnhaft)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)/i,
-      /(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+)/
-    ];
-    for (const pattern of locationPatterns) {
-      const locationMatch = line.match(pattern);
-      if (locationMatch) {
-        currentObituary.location = locationMatch[locationMatch.length - 1];
-        break;
-      }
-    }
-
-    // Accumulate text
-    if (currentObituary.name && line.trim()) {
-      currentObituary.text = (currentObituary.text || '') + line + '\n';
+  }
+  
+  // Pattern 4: Header names (## Name or ### Name)
+  const headerPattern = /^#{1,4}\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*$/gm;
+  while ((match = headerPattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    if (name && !seenNames.has(name.toLowerCase()) && 
+        name.split(' ').length >= 2 &&
+        !name.toLowerCase().includes('traueranzeige') &&
+        !name.toLowerCase().includes('trauerhilfe')) {
+      seenNames.add(name.toLowerCase());
+      obituaries.push({
+        name,
+        birth_date: null,
+        death_date: today,
+        location: extractLocationFromSource(source),
+        text: null,
+        source,
+        photo_url: null
+      });
     }
   }
 
-  // Don't forget the last one
-  if (currentObituary.name && currentObituary.death_date) {
-    obituaries.push({
-      name: currentObituary.name,
-      birth_date: currentObituary.birth_date || null,
-      death_date: currentObituary.death_date,
-      location: currentObituary.location || null,
-      text: currentObituary.text?.trim() || null,
-      source,
-      photo_url: null
-    });
-  }
-
+  console.log(`Parser found ${obituaries.length} obituaries with patterns`);
   return obituaries;
+}
+
+function extractDeathDate(text: string): string | null {
+  // Look for death date markers
+  const deathPatterns = [
+    /[†✝]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/,
+    /gestorben\s*(?:am\s*)?(\d{1,2})\.(\d{1,2})\.(\d{4})/i,
+    /verstorben\s*(?:am\s*)?(\d{1,2})\.(\d{1,2})\.(\d{4})/i,
+    /-\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*$/
+  ];
+  
+  for (const pattern of deathPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const [, day, month, year] = match;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+function extractBirthDate(text: string): string | null {
+  // Look for birth date markers
+  const birthPatterns = [
+    /[*]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/,
+    /geboren\s*(?:am\s*)?(\d{1,2})\.(\d{1,2})\.(\d{4})/i,
+    /geb\.\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/i
+  ];
+  
+  for (const pattern of birthPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      const [, day, month, year] = match;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+function extractLocationFromText(text: string): string | null {
+  const locationPatterns = [
+    /(?:aus|in|wohnhaft\s+in)\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß]+)?)/i,
+    /(\d{5})\s+([A-ZÄÖÜ][a-zäöüß]+)/
+  ];
+  
+  for (const pattern of locationPatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      return match[match.length - 1];
+    }
+  }
+  return null;
+}
+
+function extractLocationFromSource(source: string): string | null {
+  // Map sources to likely locations
+  const sourceLocationMap: Record<string, string> = {
+    'Münchner Merkur': 'München',
+    'Süddeutsche Zeitung': 'München',
+    'Frankfurter Allgemeine': 'Frankfurt',
+    'Tagesspiegel': 'Berlin',
+    'Rhein-Zeitung': 'Koblenz',
+    'Heidenheimer Zeitung': 'Heidenheim',
+    'Grafschafter Nachrichten': 'Nordhorn',
+    'Oberhessische Presse': 'Marburg'
+  };
+  return sourceLocationMap[source] || null;
 }
 
 Deno.serve(async (req) => {
