@@ -15,6 +15,10 @@ const OBITUARY_SOURCES = [
   { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
   { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
   
+  // NRW - Köln & Düsseldorf
+  { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
+  
   // Regional portals
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
@@ -243,6 +247,8 @@ function extractLocationFromSource(source: string): string | null {
     'Heidenheimer Zeitung': 'Heidenheim',
     'Grafschafter Nachrichten': 'Nordhorn',
     'Oberhessische Presse': 'Marburg',
+    'Rheinische Post': 'Düsseldorf',
+    'Kölner Stadt-Anzeiger': 'Köln',
     'Trauer-Anzeigen.de': null
   };
   return sourceLocationMap[source] ?? null;
