@@ -5,25 +5,85 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Optimized German obituary portal URLs - using pages with actual listings
+// German obituary sources for Top 25 cities
 const OBITUARY_SOURCES = [
-  // National portals with listings
+  // National portal
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   
-  // Major newspapers with obituary listings
-  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  // 1. Berlin
   { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
+  
+  // 2. Hamburg
+  { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
+  
+  // 3. München
+  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
   
-  // NRW - Köln & Düsseldorf
-  { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  // 4. Köln
   { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
   
-  // Regional portals
+  // 5. Frankfurt
+  { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 6. Stuttgart
+  { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 7. Düsseldorf
+  { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 8. Leipzig
+  { id: 'leipzig', name: 'Leipziger Volkszeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-leipzig' },
+  
+  // 9. Dortmund (Ruhr Nachrichten)
+  { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
+  
+  // 10. Essen (WAZ)
+  { id: 'waz', name: 'WAZ', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
+  
+  // 11. Bremen
+  { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 12. Dresden
+  { id: 'dresden', name: 'Sächsische Zeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-dresden' },
+  
+  // 13. Hannover
+  { id: 'hannover', name: 'HAZ', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-hannover' },
+  
+  // 14. Nürnberg
+  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 15. Duisburg
+  { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
+  
+  // 16. Bochum (NRW Portal)
+  { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 17. Wuppertal
+  { id: 'wuppertal', name: 'Wuppertaler Rundschau', url: 'https://trauer.wuppertaler-rundschau.de/traueranzeigen-suche/letzte-14-tage' },
+  
+  // 18. Bielefeld
+  { id: 'bielefeld', name: 'Neue Westfälische', url: 'https://trauer.nw.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 19. Bonn
+  { id: 'bonn', name: 'General-Anzeiger Bonn', url: 'https://trauer.ga.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 20. Münster
+  { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 21. Mannheim
+  { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
+  
+  // 22. Karlsruhe
+  { id: 'karlsruhe', name: 'BNN Karlsruhe', url: 'https://trauer.bnn.de/' },
+  
+  // 23. Augsburg
+  { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // Additional regional
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
-  { id: 'gn', name: 'Grafschafter Nachrichten', url: 'https://trauer.gn-online.de/' },
-  { id: 'ok', name: 'Oberhessische Presse', url: 'https://www.ok-trauer.de/' },
 ];
 
 interface ScrapedObituary {
@@ -239,16 +299,35 @@ function extractBirthDate(text: string): string | null {
 
 function extractLocationFromSource(source: string): string | null {
   const sourceLocationMap: Record<string, string | null> = {
-    'Münchner Merkur': 'München',
-    'Süddeutsche Zeitung': 'München',
-    'Frankfurter Allgemeine': 'Frankfurt',
+    // Top 25 cities
     'Tagesspiegel': 'Berlin',
+    'Hamburger Abendblatt': 'Hamburg',
+    'Süddeutsche Zeitung': 'München',
+    'Münchner Merkur': 'München',
+    'Kölner Stadt-Anzeiger': 'Köln',
+    'Frankfurter Allgemeine': 'Frankfurt',
+    'Frankfurter Rundschau': 'Frankfurt',
+    'Stuttgarter Zeitung': 'Stuttgart',
+    'Rheinische Post': 'Düsseldorf',
+    'Leipziger Volkszeitung': 'Leipzig',
+    'Ruhr Nachrichten': 'Dortmund',
+    'WAZ': 'Essen',
+    'Weser Kurier': 'Bremen',
+    'Sächsische Zeitung': 'Dresden',
+    'HAZ': 'Hannover',
+    'Nürnberger Nachrichten': 'Nürnberg',
+    'Niederrhein Nachrichten': 'Duisburg',
+    'Trauer NRW': 'Bochum',
+    'Wuppertaler Rundschau': 'Wuppertal',
+    'Neue Westfälische': 'Bielefeld',
+    'General-Anzeiger Bonn': 'Bonn',
+    'Westfälische Nachrichten': 'Münster',
+    'Mannheimer Morgen': 'Mannheim',
+    'BNN Karlsruhe': 'Karlsruhe',
+    'Augsburger Allgemeine': 'Augsburg',
+    // Additional
     'Rhein-Zeitung': 'Koblenz',
     'Heidenheimer Zeitung': 'Heidenheim',
-    'Grafschafter Nachrichten': 'Nordhorn',
-    'Oberhessische Presse': 'Marburg',
-    'Rheinische Post': 'Düsseldorf',
-    'Kölner Stadt-Anzeiger': 'Köln',
     'Trauer-Anzeigen.de': null
   };
   return sourceLocationMap[source] ?? null;
