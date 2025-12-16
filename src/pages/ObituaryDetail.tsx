@@ -3,17 +3,43 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
-import { Obituary } from "@/components/obituary/ObituaryCard";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Calendar, Loader2, Heart } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Loader2, Heart, MessageSquare } from "lucide-react";
+import CandleModal from "@/components/obituary/CandleModal";
+import CondolenceModal from "@/components/obituary/CondolenceModal";
+import CandlesList from "@/components/obituary/CandlesList";
+import CondolencesList from "@/components/obituary/CondolencesList";
+
+interface Obituary {
+  id: string;
+  name: string;
+  birth_date: string | null;
+  death_date: string;
+  location: string | null;
+  text: string | null;
+  source: string | null;
+  photo_url: string | null;
+  created_at: string;
+  birth_location?: string | null;
+  death_location?: string | null;
+  funeral_date?: string | null;
+  funeral_location?: string | null;
+  funeral_time?: string | null;
+  mourners?: string | null;
+  publication_date?: string | null;
+}
 
 const ObituaryDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const [obituary, setObituary] = useState<Obituary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [candleModalOpen, setCandleModalOpen] = useState(false);
+  const [condolenceModalOpen, setCondolenceModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchObituary = async () => {
@@ -32,7 +58,7 @@ const ObituaryDetail = () => {
       if (error || !data) {
         setNotFound(true);
       } else {
-        setObituary(data);
+        setObituary(data as Obituary);
       }
       setIsLoading(false);
     };
@@ -47,6 +73,14 @@ const ObituaryDetail = () => {
     } catch {
       return dateString;
     }
+  };
+
+  const handleCandleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["candles", id] });
+  };
+
+  const handleCondolenceSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["condolences", id] });
   };
 
   if (isLoading) {
@@ -160,6 +194,15 @@ const ObituaryDetail = () => {
                 </div>
               )}
 
+              {/* Mourners */}
+              {obituary.mourners && (
+                <div className="mt-6 text-center md:text-left">
+                  <p className="text-muted-foreground italic whitespace-pre-line">
+                    {obituary.mourners}
+                  </p>
+                </div>
+              )}
+
               {/* Details */}
               <div className="mt-8 space-y-3">
                 {obituary.location && (
@@ -168,10 +211,21 @@ const ObituaryDetail = () => {
                     <span>{obituary.location}</span>
                   </div>
                 )}
+
+                {obituary.funeral_date && (
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span>
+                      Beisetzung: {formatDate(obituary.funeral_date)}
+                      {obituary.funeral_time && ` um ${obituary.funeral_time}`}
+                      {obituary.funeral_location && `, ${obituary.funeral_location}`}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <Calendar className="h-4 w-4 flex-shrink-0" />
-                  <span>Veröffentlicht am {formatDate(obituary.created_at)}</span>
+                  <span>Veröffentlicht am {formatDate(obituary.publication_date || obituary.created_at)}</span>
                 </div>
 
                 {obituary.source && (
@@ -186,22 +240,48 @@ const ObituaryDetail = () => {
 
             {/* Actions */}
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => setCandleModalOpen(true)}
+              >
                 <Heart className="h-4 w-4" />
                 Kerze anzünden
               </Button>
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => setCondolenceModalOpen(true)}
+              >
+                <MessageSquare className="h-4 w-4" />
                 Kondolenz schreiben
               </Button>
             </div>
 
-            {/* Note about premium features */}
-            <p className="text-center text-xs text-muted-foreground mt-6">
-              Kondolenzbuch und virtuelle Kerzen sind Premium-Funktionen und werden bald verfügbar sein.
-            </p>
+            {/* Candles List */}
+            <CandlesList obituaryId={obituary.id} />
+
+            {/* Condolences List */}
+            <CondolencesList obituaryId={obituary.id} />
           </div>
         </div>
       </article>
+
+      {/* Modals */}
+      <CandleModal
+        open={candleModalOpen}
+        onOpenChange={setCandleModalOpen}
+        obituaryId={obituary.id}
+        obituaryName={obituary.name}
+        onSuccess={handleCandleSuccess}
+      />
+      <CondolenceModal
+        open={condolenceModalOpen}
+        onOpenChange={setCondolenceModalOpen}
+        obituaryId={obituary.id}
+        obituaryName={obituary.name}
+        onSuccess={handleCondolenceSuccess}
+      />
     </Layout>
   );
 };
