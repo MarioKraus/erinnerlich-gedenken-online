@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import Layout from "@/components/layout/Layout";
 import SearchForm from "@/components/search/SearchForm";
+import SearchAgentForm from "@/components/search/SearchAgentForm";
 import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";

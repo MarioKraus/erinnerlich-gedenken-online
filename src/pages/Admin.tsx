@@ -1,39 +1,116 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// All configured newspaper sources - synced with edge function
 const NEWSPAPER_SOURCES = [
-  // Nationale Portale
-  { id: "trauer-de", name: "Trauer.de", url: "https://www.trauer.de" },
-  { id: "trauer-anzeigen", name: "Trauer-Anzeigen.de", url: "https://trauer-anzeigen.de" },
+  // National portal
+  { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   
-  // Große Zeitungen
-  { id: "sueddeutsche", name: "Süddeutsche Zeitung", url: "https://trauer.sueddeutsche.de" },
-  { id: "faz", name: "Frankfurter Allgemeine", url: "https://lebenswege.faz.net" },
-  { id: "tagesspiegel", name: "Tagesspiegel", url: "https://trauer.tagesspiegel.de" },
-  { id: "merkur", name: "Münchner Merkur", url: "https://trauer.merkur.de" },
+  // 1. Berlin
+  { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
   
-  // Regionale Portale
-  { id: "hz", name: "Heidenheimer Zeitung", url: "https://trauer.hz.de" },
-  { id: "rz", name: "Rhein-Zeitung", url: "https://rz-trauer.de" },
-  { id: "gn", name: "Grafschafter Nachrichten", url: "https://trauer.gn-online.de" },
-  { id: "ok", name: "Oberhessische Presse", url: "https://www.ok-trauer.de" },
+  // 2. Hamburg
+  { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
   
-  // Gedenkportale
-  { id: "viternity", name: "Viternity", url: "https://www.viternity.org" },
+  // 3. München
+  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
+  
+  // 4. Köln
+  { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
+  
+  // 5. Frankfurt
+  { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 6. Stuttgart
+  { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 7. Düsseldorf
+  { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 8. Leipzig
+  { id: 'leipzig', name: 'Leipziger Volkszeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-leipzig' },
+  
+  // 9. Dortmund
+  { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
+  
+  // 10. Essen
+  { id: 'waz', name: 'WAZ', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
+  
+  // 11. Bremen
+  { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 12. Dresden
+  { id: 'dresden', name: 'Sächsische Zeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-dresden' },
+  
+  // 13. Hannover
+  { id: 'hannover', name: 'HAZ', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-hannover' },
+  
+  // 14. Nürnberg
+  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 15. Duisburg
+  { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
+  
+  // 16. Bochum
+  { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 17. Wuppertal
+  { id: 'wuppertal', name: 'Wuppertaler Rundschau', url: 'https://trauer.wuppertaler-rundschau.de/traueranzeigen-suche/letzte-14-tage' },
+  
+  // 18. Bielefeld
+  { id: 'bielefeld', name: 'Neue Westfälische', url: 'https://trauer.nw.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 19. Bonn
+  { id: 'bonn', name: 'General-Anzeiger Bonn', url: 'https://trauer.ga.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 20. Münster
+  { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // 21. Mannheim
+  { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
+  
+  // 22. Karlsruhe
+  { id: 'karlsruhe', name: 'BNN Karlsruhe', url: 'https://trauer.bnn.de/' },
+  
+  // 23. Augsburg
+  { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  
+  // Additional regional
+  { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
+  { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
+  
+  // Community portals
+  { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
+  { id: 'trauerundgedenken', name: 'Trauer und Gedenken', url: 'https://www.trauerundgedenken.de/traueranzeigen-suche/letzte-14-tage' },
+];
+
+const CRON_OPTIONS = [
+  { value: '0 * * * *', label: 'Stündlich' },
+  { value: '0 */2 * * *', label: 'Alle 2 Stunden' },
+  { value: '0 */4 * * *', label: 'Alle 4 Stunden' },
+  { value: '0 */6 * * *', label: 'Alle 6 Stunden' },
+  { value: '0 */12 * * *', label: 'Alle 12 Stunden' },
+  { value: '0 0 * * *', label: 'Täglich um Mitternacht' },
+  { value: '0 6 * * *', label: 'Täglich um 6:00 Uhr' },
+  { value: '0 8 * * *', label: 'Täglich um 8:00 Uhr' },
 ];
 
 const Admin = () => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isScrapingAll, setIsScrapingAll] = useState(false);
   const [scrapingSource, setScrapingSource] = useState<string | null>(null);
   const [totalExpanded, setTotalExpanded] = useState(false);
@@ -81,6 +158,53 @@ const Admin = () => {
     },
   });
 
+  const { data: scraperSettings, refetch: refetchSettings } = useQuery<{
+    id: string;
+    cron_interval: string;
+    is_active: boolean;
+    last_run_at: string | null;
+  }>({
+    queryKey: ["scraper-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("scraper_settings" as any)
+        .select("*")
+        .single();
+      
+      if (error) {
+        console.error("Error fetching scraper settings:", error);
+        return { id: '', cron_interval: '0 * * * *', is_active: true, last_run_at: null };
+      }
+      return data as any;
+    },
+  });
+
+  const updateCronMutation = useMutation({
+    mutationFn: async (newInterval: string) => {
+      if (!scraperSettings?.id) return;
+      const { error } = await supabase
+        .from("scraper_settings" as any)
+        .update({ cron_interval: newInterval, updated_at: new Date().toISOString() })
+        .eq("id", scraperSettings?.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Intervall aktualisiert",
+        description: "Das Scraping-Intervall wurde erfolgreich geändert.",
+      });
+      refetchSettings();
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleScrapeAll = async () => {
     setIsScrapingAll(true);
     try {
@@ -92,10 +216,21 @@ const Admin = () => {
 
       toast({
         title: "Scraping gestartet",
-        description: `${data?.processed || 0} Quellen werden verarbeitet.`,
+        description: `${data?.details?.scraped || 0} Quellen wurden verarbeitet. ${data?.details?.inserted || 0} neue Einträge.`,
       });
 
-      setTimeout(() => refetchStats(), 5000);
+      // Update last run time
+      if (scraperSettings?.id) {
+        await supabase
+          .from("scraper_settings" as any)
+          .update({ last_run_at: new Date().toISOString() })
+          .eq("id", scraperSettings.id);
+      }
+
+      setTimeout(() => {
+        refetchStats();
+        refetchSettings();
+      }, 2000);
     } catch (error) {
       console.error("Scraping error:", error);
       toast({
@@ -118,11 +253,11 @@ const Admin = () => {
       if (error) throw error;
 
       toast({
-        title: "Scraping gestartet",
-        description: `Quelle "${sourceId}" wird verarbeitet.`,
+        title: "Scraping abgeschlossen",
+        description: `${data?.details?.inserted || 0} neue Einträge importiert.`,
       });
 
-      setTimeout(() => refetchStats(), 3000);
+      setTimeout(() => refetchStats(), 2000);
     } catch (error) {
       console.error("Scraping error:", error);
       toast({
@@ -133,6 +268,10 @@ const Admin = () => {
     } finally {
       setScrapingSource(null);
     }
+  };
+
+  const getCronLabel = (cronValue: string) => {
+    return CRON_OPTIONS.find(o => o.value === cronValue)?.label || cronValue;
   };
 
   const ObituaryListItem = ({ obituary }: { obituary: { id: string; name: string; source: string | null; created_at: string } }) => (
@@ -199,7 +338,7 @@ const Admin = () => {
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">Traueranzeigen in der Datenbank (klicken zum Anzeigen)</p>
+                  <p className="text-xs text-muted-foreground">Traueranzeigen in der Datenbank</p>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-4 space-y-2 max-h-64 overflow-y-auto">
                   {obituaryStats?.allList?.map((obituary) => (
@@ -228,7 +367,7 @@ const Admin = () => {
                       <ChevronDown className="h-4 w-4 text-muted-foreground" />
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground">Neue Einträge heute (klicken zum Anzeigen)</p>
+                  <p className="text-xs text-muted-foreground">Neue Einträge heute</p>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-4 space-y-2 max-h-64 overflow-y-auto">
                   {obituaryStats?.todayList && obituaryStats.todayList.length > 0 ? (
@@ -243,26 +382,74 @@ const Admin = () => {
             </Card>
           </Collapsible>
 
+          {/* Cron Job Card with Controls */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Cron-Job</CardTitle>
-              <RefreshCw className="h-4 w-4 text-muted-foreground" />
+              <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Aktiv - Stündlich
-              </Badge>
-              <p className="text-xs text-muted-foreground mt-1">Zur vollen Stunde</p>
+            <CardContent className="space-y-4">
+              <div>
+                <Badge variant="secondary" className={scraperSettings?.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                  {scraperSettings?.is_active ? "Aktiv" : "Inaktiv"}
+                </Badge>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {getCronLabel(scraperSettings?.cron_interval || '0 * * * *')}
+                </p>
+                {scraperSettings?.last_run_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium">Intervall ändern:</label>
+                <Select
+                  value={scraperSettings?.cron_interval || '0 * * * *'}
+                  onValueChange={(value) => updateCronMutation.mutate(value)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CRON_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleScrapeAll}
+                disabled={isScrapingAll || !!scrapingSource}
+                className="w-full bg-memorial-forest hover:bg-memorial-forest/90"
+              >
+                {isScrapingAll ? (
+                  <>
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    Scraping...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 h-3 w-3" />
+                    Jetzt alle scrapen
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Manual Scraping */}
+        {/* Manual Scraping - All Sources */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Manuelles Scraping</CardTitle>
             <CardDescription>
-              Lösen Sie das Scraping manuell aus, um sofort neue Traueranzeigen zu importieren.
+              {NEWSPAPER_SOURCES.length} konfigurierte Quellen. Klicken Sie auf eine Quelle, um sie einzeln zu scrapen.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -280,7 +467,7 @@ const Admin = () => {
                 ) : (
                   <>
                     <Play className="mr-2 h-4 w-4" />
-                    Alle Quellen scrapen
+                    Alle {NEWSPAPER_SOURCES.length} Quellen scrapen
                   </>
                 )}
               </Button>
@@ -290,7 +477,7 @@ const Admin = () => {
               </Button>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {NEWSPAPER_SOURCES.map((source) => (
                 <Card key={source.id} className="p-3">
                   <div className="flex items-center justify-between gap-2">
@@ -310,7 +497,7 @@ const Admin = () => {
                           rel="noopener noreferrer"
                           className="text-xs text-muted-foreground truncate hover:text-primary transition-colors flex items-center gap-1"
                         >
-                          <span className="truncate max-w-[120px]">{source.url}</span>
+                          <span className="truncate max-w-[150px]">{new URL(source.url).hostname}</span>
                           <ExternalLink className="h-3 w-3 flex-shrink-0" />
                         </a>
                       </div>
