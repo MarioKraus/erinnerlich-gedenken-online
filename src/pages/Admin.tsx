@@ -207,16 +207,51 @@ const Admin = () => {
 
   const handleScrapeAll = async () => {
     setIsScrapingAll(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("scrape-obituaries", {
-        body: { sources: NEWSPAPER_SOURCES.map((s) => s.id) },
-      });
 
-      if (error) throw error;
+    const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+    const chunk = <T,>(arr: T[], size: number) => {
+      const out: T[][] = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+
+    try {
+      const sourceIds = NEWSPAPER_SOURCES.map((s) => s.id);
+      const batches = chunk(sourceIds, 4);
+
+      let totalScraped = 0;
+      let totalInserted = 0;
+      let totalSkipped = 0;
+      const allErrors: string[] = [];
+
+      for (let i = 0; i < batches.length; i++) {
+        const batch = batches[i];
+
+        const { data, error } = await supabase.functions.invoke("scrape-obituaries", {
+          body: { sources: batch },
+        });
+
+        if (error) throw error;
+
+        if (data?.success === false) {
+          if (data?.error) allErrors.push(data.error);
+          if (data?.details?.errors?.length) allErrors.push(...data.details.errors);
+          break;
+        }
+
+        totalScraped += data?.details?.scraped || 0;
+        totalInserted += data?.details?.inserted || 0;
+        totalSkipped += data?.details?.skipped || 0;
+        if (data?.details?.errors?.length) allErrors.push(...data.details.errors);
+
+        // small pause between batches to avoid client/network timeouts
+        await sleep(1500);
+      }
 
       toast({
-        title: "Scraping gestartet",
-        description: `${data?.details?.scraped || 0} Quellen wurden verarbeitet. ${data?.details?.inserted || 0} neue Einträge.`,
+        title: allErrors.length ? "Scraping beendet (mit Hinweisen)" : "Scraping abgeschlossen",
+        description: `${totalScraped} Quellen verarbeitet. ${totalInserted} neue Einträge. ${totalSkipped} übersprungen.`,
+        variant: allErrors.length ? "destructive" : undefined,
       });
 
       // Update last run time
@@ -251,6 +286,10 @@ const Admin = () => {
       });
 
       if (error) throw error;
+
+      if (data?.success === false) {
+        throw new Error(data?.error || "Scraping fehlgeschlagen");
+      }
 
       toast({
         title: "Scraping abgeschlossen",
