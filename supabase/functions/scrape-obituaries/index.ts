@@ -84,6 +84,10 @@ const OBITUARY_SOURCES = [
   // Additional regional
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
+
+  // Community portals
+  { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
+  { id: 'trauerundgedenken', name: 'Trauer und Gedenken', url: 'https://www.trauerundgedenken.de/traueranzeigen-suche/letzte-14-tage' },
 ];
 
 interface ScrapedObituary {
@@ -103,7 +107,7 @@ function delay(ms: number): Promise<void> {
 
 async function scrapeUrl(url: string, apiKey: string, retryCount = 0): Promise<any> {
   console.log(`Scraping: ${url}`);
-  
+
   const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
     method: 'POST',
     headers: {
@@ -122,19 +126,29 @@ async function scrapeUrl(url: string, apiKey: string, retryCount = 0): Promise<a
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`Scrape failed for ${url}:`, errorText);
-    
-    // Check for rate limit error and retry after delay
-    if (response.status === 429 || errorText.includes('Rate limit')) {
-      if (retryCount < 3) {
-        // Wait 60 seconds + some buffer before retry
-        const waitTime = 65000 + (retryCount * 10000);
-        console.log(`Rate limit hit for ${url}, waiting ${waitTime/1000}s before retry ${retryCount + 1}/3`);
-        await delay(waitTime);
-        return scrapeUrl(url, apiKey, retryCount + 1);
-      }
+
+    // Hard stop: no credits
+    if (errorText.toLowerCase().includes('insufficient credits')) {
+      throw new Error('INSUFFICIENT_CREDITS');
     }
-    
-    throw new Error(`Failed to scrape ${url}`);
+
+    // Rate limit handling: retry a couple times using the suggested retry window
+    const isRateLimited = response.status === 429 || errorText.toLowerCase().includes('rate limit exceeded');
+    if (isRateLimited && retryCount < 2) {
+      const retryAfterMatch = errorText.match(/retry after\s+(\d+)s/i);
+      const retryAfterSeconds = retryAfterMatch ? Number(retryAfterMatch[1]) : 45;
+      const waitMs = (retryAfterSeconds + 2) * 1000;
+      console.log(`Rate limit hit for ${url}, waiting ${Math.round(waitMs / 1000)}s before retry ${retryCount + 1}/2`);
+      await delay(waitMs);
+      return scrapeUrl(url, apiKey, retryCount + 1);
+    }
+
+    // Bubble up a helpful reason
+    if (isRateLimited) {
+      throw new Error('RATE_LIMIT_EXCEEDED');
+    }
+
+    throw new Error('SCRAPE_FAILED');
   }
 
   return response.json();
@@ -391,13 +405,25 @@ Deno.serve(async (req) => {
     } catch {
       // Empty body is fine
     }
-    
-    const { sourceUrl, sourceName } = body as { sourceUrl?: string; sourceName?: string };
-    
-    // If specific URL provided, scrape that; otherwise scrape all sources
-    const urlsToScrape = sourceUrl 
-      ? [{ url: sourceUrl, name: sourceName || 'Manuell' }]
-      : OBITUARY_SOURCES.map(s => ({ url: s.url, name: s.name }));
+
+    const { sourceUrl, sourceName, sources } = body as {
+      sourceUrl?: string;
+      sourceName?: string;
+      sources?: string[];
+    };
+
+    const allSources = OBITUARY_SOURCES.map((s) => ({ id: s.id, url: s.url, name: s.name }));
+
+    // If specific URL provided, scrape that; otherwise scrape selected sources (or all)
+    let urlsToScrape: Array<{ id?: string; url: string; name: string }> = [];
+    if (sourceUrl) {
+      urlsToScrape = [{ url: sourceUrl, name: sourceName || 'Manuell' }];
+    } else if (Array.isArray(sources) && sources.length > 0) {
+      const selected = allSources.filter((s) => sources.includes(s.id));
+      urlsToScrape = selected.map((s) => ({ id: s.id, url: s.url, name: s.name }));
+    } else {
+      urlsToScrape = allSources.map((s) => ({ id: s.id, url: s.url, name: s.name }));
+    }
 
     const results = {
       scraped: 0,
@@ -407,19 +433,38 @@ Deno.serve(async (req) => {
       bySource: {} as Record<string, { parsed: number; inserted: number }>
     };
 
-    // Process sources with delay between each to avoid rate limiting
-    // Firecrawl free tier: ~15-20 requests/minute, so we wait 4 seconds between requests
-    const DELAY_BETWEEN_REQUESTS = 4000; // 4 seconds = ~15 requests/minute
-    
+    // If the caller passed specific source IDs, record unknown IDs
+    if (!sourceUrl && Array.isArray(sources) && sources.length > 0) {
+      const knownIds = new Set(allSources.map((s) => s.id));
+      const unknown = sources.filter((id) => !knownIds.has(id));
+      for (const id of unknown) {
+        results.errors.push(`Unbekannte Quelle: ${id}`);
+      }
+    }
+
+    // Keep runtime below typical request timeouts (prevents "Load failed" on the client)
+    const startedAt = Date.now();
+    const MAX_RUNTIME_MS = 55000;
+
+    // Rate limiting: small delay between sources
+    const DELAY_BETWEEN_REQUESTS = urlsToScrape.length > 1 ? 3500 : 0;
+
+    let hardStopReason: string | null = null;
+
     for (let i = 0; i < urlsToScrape.length; i++) {
       const source = urlsToScrape[i];
-      
+
+      if (Date.now() - startedAt > MAX_RUNTIME_MS) {
+        hardStopReason = 'Zeitlimit erreicht – bitte erneut starten (wird in Batches verarbeitet).';
+        results.errors.push(hardStopReason);
+        break;
+      }
+
       // Add delay between requests (skip first one)
-      if (i > 0) {
-        console.log(`Waiting ${DELAY_BETWEEN_REQUESTS/1000}s before next request...`);
+      if (DELAY_BETWEEN_REQUESTS > 0 && i > 0) {
         await delay(DELAY_BETWEEN_REQUESTS);
       }
-      
+
       try {
         console.log(`Processing source ${i + 1}/${urlsToScrape.length}: ${source.name}`);
         const scrapeResult = await scrapeUrl(source.url, firecrawlKey);
@@ -463,8 +508,34 @@ Deno.serve(async (req) => {
       } catch (sourceError) {
         const errorMsg = sourceError instanceof Error ? sourceError.message : 'Unknown error';
         console.error(`Error processing ${source.name}:`, errorMsg);
+
+        if (errorMsg === 'INSUFFICIENT_CREDITS') {
+          hardStopReason = 'Scraping-Kontingent ist aufgebraucht. Bitte Kontingent erhöhen oder später erneut versuchen.';
+          results.errors.push(`${source.name}: ${hardStopReason}`);
+          break;
+        }
+
+        if (errorMsg === 'RATE_LIMIT_EXCEEDED') {
+          // Stop early to avoid long waits/timeouts
+          hardStopReason = 'Rate-Limit erreicht. Bitte in 1–2 Minuten erneut starten.';
+          results.errors.push(`${source.name}: ${hardStopReason}`);
+          break;
+        }
+
         results.errors.push(`${source.name}: ${errorMsg}`);
       }
+    }
+
+    if (hardStopReason) {
+      console.log('Scraping stopped early:', hardStopReason);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: hardStopReason,
+          details: results,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Scraping complete:', JSON.stringify(results, null, 2));
