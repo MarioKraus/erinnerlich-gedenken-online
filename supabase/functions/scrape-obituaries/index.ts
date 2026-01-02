@@ -96,7 +96,12 @@ interface ScrapedObituary {
   photo_url: string | null;
 }
 
-async function scrapeUrl(url: string, apiKey: string): Promise<any> {
+// Helper to delay between requests
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function scrapeUrl(url: string, apiKey: string, retryCount = 0): Promise<any> {
   console.log(`Scraping: ${url}`);
   
   const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
@@ -115,8 +120,20 @@ async function scrapeUrl(url: string, apiKey: string): Promise<any> {
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    console.error(`Scrape failed for ${url}:`, error);
+    const errorText = await response.text();
+    console.error(`Scrape failed for ${url}:`, errorText);
+    
+    // Check for rate limit error and retry after delay
+    if (response.status === 429 || errorText.includes('Rate limit')) {
+      if (retryCount < 3) {
+        // Wait 60 seconds + some buffer before retry
+        const waitTime = 65000 + (retryCount * 10000);
+        console.log(`Rate limit hit for ${url}, waiting ${waitTime/1000}s before retry ${retryCount + 1}/3`);
+        await delay(waitTime);
+        return scrapeUrl(url, apiKey, retryCount + 1);
+      }
+    }
+    
     throw new Error(`Failed to scrape ${url}`);
   }
 
@@ -374,9 +391,21 @@ Deno.serve(async (req) => {
       bySource: {} as Record<string, { parsed: number; inserted: number }>
     };
 
-    for (const source of urlsToScrape) {
+    // Process sources with delay between each to avoid rate limiting
+    // Firecrawl free tier: ~15-20 requests/minute, so we wait 4 seconds between requests
+    const DELAY_BETWEEN_REQUESTS = 4000; // 4 seconds = ~15 requests/minute
+    
+    for (let i = 0; i < urlsToScrape.length; i++) {
+      const source = urlsToScrape[i];
+      
+      // Add delay between requests (skip first one)
+      if (i > 0) {
+        console.log(`Waiting ${DELAY_BETWEEN_REQUESTS/1000}s before next request...`);
+        await delay(DELAY_BETWEEN_REQUESTS);
+      }
+      
       try {
-        console.log(`Processing source: ${source.name}`);
+        console.log(`Processing source ${i + 1}/${urlsToScrape.length}: ${source.name}`);
         const scrapeResult = await scrapeUrl(source.url, firecrawlKey);
         results.scraped++;
 
