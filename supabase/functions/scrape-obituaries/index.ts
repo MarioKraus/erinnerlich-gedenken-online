@@ -155,6 +155,22 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     'expertenchat jeden', 'unsere trauerchats', 'traueranzeige aufgeben'
   ]);
 
+  // Helper to clean source attributions from names
+  const cleanSourceFromName = (name: string): string => {
+    // Remove common source attribution patterns like "von Süddeutsche Zeitung", "von OFOP", etc.
+    const sourcePatterns = [
+      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|GmbH).*$/i,
+      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung).*$/i,
+      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*GmbH.*$/i,
+    ];
+    
+    let cleanedName = name;
+    for (const pattern of sourcePatterns) {
+      cleanedName = cleanedName.replace(pattern, '');
+    }
+    return cleanedName.trim();
+  };
+
   // Helper to validate name
   const isValidName = (name: string): boolean => {
     if (!name || name.length < 4) return false;
@@ -173,9 +189,9 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
 
   // Pattern 1: "Traueranzeige von [Name] von [source]" - most common format
   // Examples: "Traueranzeige von Magdalena Pabst von merkurtz"
-  const traueranzeigenPattern = /Traueranzeige von\s+([A-ZÄÖÜ][a-zäöüß]+(?:[-\s]+[A-ZÄÖÜ]?[a-zäöüß]+)*)\s+von\s+/gi;
+  const traueranzeigenPattern = /Traueranzeige von\s+([A-ZÄÖÜ][a-zäöüß]+(?:[-\s]+[A-ZÄÖÜ]?[a-zäöüß]+)*(?:\s+von\s+[A-ZÄÖÜ][a-zäöüß\-]+)?)/gi;
   while ((match = traueranzeigenPattern.exec(markdown)) !== null) {
-    const name = match[1].trim();
+    let name = cleanSourceFromName(match[1].trim());
     if (isValidName(name)) {
       seenNames.add(name.toLowerCase());
       obituaries.push({
