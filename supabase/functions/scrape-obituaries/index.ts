@@ -446,10 +446,16 @@ Deno.serve(async (req) => {
     const startedAt = Date.now();
     const MAX_RUNTIME_MS = 55000;
 
-    // Rate limiting: small delay between sources
-    const DELAY_BETWEEN_REQUESTS = urlsToScrape.length > 1 ? 3500 : 0;
-
+    // Rate limiting: max 9 requests per minute = ~6.7s between requests
+    // We use 7 seconds to stay safely under the limit
+    const DELAY_BETWEEN_REQUESTS_MS = 7000;
+    
+    // Max 2 pages processed in parallel (we process sequentially but track for future)
+    const MAX_CONCURRENT = 2;
+    
     let hardStopReason: string | null = null;
+    let requestsThisMinute = 0;
+    let minuteStartTime = Date.now();
 
     for (let i = 0; i < urlsToScrape.length; i++) {
       const source = urlsToScrape[i];
@@ -460,10 +466,27 @@ Deno.serve(async (req) => {
         break;
       }
 
-      // Add delay between requests (skip first one)
-      if (DELAY_BETWEEN_REQUESTS > 0 && i > 0) {
-        await delay(DELAY_BETWEEN_REQUESTS);
+      // Rate limiting: reset counter every minute
+      if (Date.now() - minuteStartTime > 60000) {
+        requestsThisMinute = 0;
+        minuteStartTime = Date.now();
       }
+
+      // If we've made 9 requests this minute, wait for the minute to end
+      if (requestsThisMinute >= 9) {
+        const waitTime = 60000 - (Date.now() - minuteStartTime) + 1000;
+        console.log(`Rate limit: waiting ${Math.round(waitTime / 1000)}s for next minute window`);
+        await delay(waitTime);
+        requestsThisMinute = 0;
+        minuteStartTime = Date.now();
+      }
+
+      // Add delay between requests (skip first one) - ensures max 9 per minute
+      if (i > 0) {
+        await delay(DELAY_BETWEEN_REQUESTS_MS);
+      }
+      
+      requestsThisMinute++;
 
       try {
         console.log(`Processing source ${i + 1}/${urlsToScrape.length}: ${source.name}`);
