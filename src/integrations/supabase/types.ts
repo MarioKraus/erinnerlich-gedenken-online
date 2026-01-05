@@ -273,6 +273,15 @@ export type Database = {
           id: string
         }[]
       }
+      schedule_scrape_job: {
+        Args: {
+          anon_key: string
+          cron_expression: string
+          function_url: string
+        }
+        Returns: undefined
+      }
+      unschedule_scrape_job: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
