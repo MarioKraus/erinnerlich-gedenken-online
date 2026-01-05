@@ -98,14 +98,12 @@ const NEWSPAPER_SOURCES = [
 ];
 
 const CRON_OPTIONS = [
-  { value: '0 * * * *', label: 'Stündlich' },
-  { value: '0 */2 * * *', label: 'Alle 2 Stunden' },
-  { value: '0 */4 * * *', label: 'Alle 4 Stunden' },
+  { value: '33 13 * * *', label: 'Täglich um 13:33 Uhr' },
+  { value: '0 8 * * *', label: 'Täglich um 8:00 Uhr' },
+  { value: '0 12 * * *', label: 'Täglich um 12:00 Uhr' },
+  { value: '0 18 * * *', label: 'Täglich um 18:00 Uhr' },
   { value: '0 */6 * * *', label: 'Alle 6 Stunden' },
   { value: '0 */12 * * *', label: 'Alle 12 Stunden' },
-  { value: '0 0 * * *', label: 'Täglich um Mitternacht' },
-  { value: '0 6 * * *', label: 'Täglich um 6:00 Uhr' },
-  { value: '0 8 * * *', label: 'Täglich um 8:00 Uhr' },
 ];
 
 const Admin = () => {
@@ -181,18 +179,20 @@ const Admin = () => {
 
   const updateCronMutation = useMutation({
     mutationFn: async (newInterval: string) => {
-      if (!scraperSettings?.id) return;
-      const { error } = await supabase
-        .from("scraper_settings" as any)
-        .update({ cron_interval: newInterval, updated_at: new Date().toISOString() })
-        .eq("id", scraperSettings?.id);
+      // Call edge function to update the actual pg_cron job
+      const { data, error } = await supabase.functions.invoke("update-cron-schedule", {
+        body: { cron_interval: newInterval },
+      });
       
       if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || "Failed to update cron");
+      
+      return data;
     },
     onSuccess: () => {
       toast({
         title: "Intervall aktualisiert",
-        description: "Das Scraping-Intervall wurde erfolgreich geändert.",
+        description: "Das Scraping-Intervall und der Cron-Job wurden erfolgreich geändert.",
       });
       refetchSettings();
     },
