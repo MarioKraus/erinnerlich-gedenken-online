@@ -267,7 +267,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      find_duplicate_obituaries: {
+        Args: never
+        Returns: {
+          id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

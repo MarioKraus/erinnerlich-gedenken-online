@@ -51,8 +51,8 @@ const OBITUARY_SOURCES = [
   // 13. Hannover
   { id: 'hannover', name: 'HAZ', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-hannover' },
   
-  // 14. Nürnberg
-  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  // 14. Nürnberg - use letzte-14-tage for better content
+  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/letzte-14-tage' },
   
   // 15. Duisburg
   { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
@@ -84,6 +84,9 @@ const OBITUARY_SOURCES = [
   // Additional regional
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
+
+  // 24. Würzburg (Mainpost Zeitungsgruppe)
+  { id: 'mainpost', name: 'Mainpost', url: 'https://trauer.mainpost.de/' },
 
   // Community portals
   { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
@@ -173,7 +176,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   const cleanSourceFromName = (name: string): string => {
     // Remove common source attribution patterns like "von Süddeutsche Zeitung", "von OFOP", etc.
     const sourcePatterns = [
-      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|GmbH).*$/i,
+      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|GmbH).*$/i,
       /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung).*$/i,
       /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*GmbH.*$/i,
     ];
@@ -220,14 +223,17 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     }
   }
 
-  // Pattern 2: "## [Anzeige Name](url)" - Süddeutsche format
+  // Pattern 2: "## [Anzeige Name](url)" - Süddeutsche/NN format
   // Example: ## [Anzeige Jürgen Rakoski](https://...)
-  const anzeigeHeaderPattern = /##\s*\[Anzeige\s+([A-ZÄÖÜ][^\]]+)\]/gi;
+  // Also matches: ## [Name](https://trauer.nn.de/...)
+  const anzeigeHeaderPattern = /##\s*\[(?:Anzeige\s+)?([A-ZÄÖÜ][^\]]+)\]\([^)]*(?:traueranzeige|trauer\.nn\.de|trauer\.mainpost\.de)[^)]*\)/gi;
   while ((match = anzeigeHeaderPattern.exec(markdown)) !== null) {
-    const name = match[1].trim();
+    let name = match[1].trim();
+    // Clean "Anzeige " prefix if present
+    name = name.replace(/^Anzeige\s+/i, '');
     if (isValidName(name)) {
-      // Look for dates after this match
-      const followingText = markdown.substring(match.index, match.index + 200);
+      // Look for dates after this match (increased range for nn.de format)
+      const followingText = markdown.substring(match.index, match.index + 400);
       const deathDate = extractDeathDate(followingText) || today;
       const birthDate = extractBirthDate(followingText);
       
@@ -245,22 +251,32 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   }
 
   // Pattern 3: Name with dates in format "* DD.MM.YYYY - † DD.MM.YYYY"
-  // This catches entries with birth and death dates
-  const nameWithDatesPattern = /([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*\n?\s*\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*-\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi;
-  while ((match = nameWithDatesPattern.exec(markdown)) !== null) {
-    const name = match[1].trim();
-    if (isValidName(name)) {
-      const [, , birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
-      seenNames.add(name.toLowerCase());
-      obituaries.push({
-        name,
-        birth_date: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
-        death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
-        location: extractLocationFromSource(source),
-        text: null,
-        source,
-        photo_url: null
-      });
+  // This catches entries with birth and death dates - handles various markdown escapes
+  const nameWithDatesPatterns = [
+    /([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*\n?\s*\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
+    /([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*\n?\s*\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
+    // NN.de format with newlines between name and dates
+    /\[([A-ZÄÖÜ][^\]]+)\]\([^)]+\)\s*\n+\s*\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
+  ];
+  for (const pattern of nameWithDatesPatterns) {
+    pattern.lastIndex = 0;
+    while ((match = pattern.exec(markdown)) !== null) {
+      let name = match[1].trim();
+      // Clean any "Anzeige " prefix
+      name = name.replace(/^Anzeige\s+/i, '');
+      if (isValidName(name)) {
+        const [, , birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
+        seenNames.add(name.toLowerCase());
+        obituaries.push({
+          name,
+          birth_date: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
+          death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
+          location: extractLocationFromSource(source),
+          text: null,
+          source,
+          photo_url: null
+        });
+      }
     }
   }
 
@@ -375,6 +391,7 @@ function extractLocationFromSource(source: string): string | null {
     // Additional
     'Rhein-Zeitung': 'Koblenz',
     'Heidenheimer Zeitung': 'Heidenheim',
+    'Mainpost': 'Würzburg',
     'Trauer-Anzeigen.de': null
   };
   return sourceLocationMap[source] ?? null;
@@ -549,13 +566,70 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === POST-SCRAPING CLEANUP ===
+    
+    // 1. Remove duplicates (same name, birth_date, death_date - keep oldest)
+    console.log('Running duplicate cleanup...');
+    const { data: duplicates, error: dupError } = await supabase.rpc('find_duplicate_obituaries');
+    
+    let duplicatesRemoved = 0;
+    if (!dupError && duplicates && duplicates.length > 0) {
+      const idsToDelete = duplicates.map((d: { id: string }) => d.id);
+      const { error: deleteError } = await supabase
+        .from('obituaries')
+        .delete()
+        .in('id', idsToDelete);
+      
+      if (!deleteError) {
+        duplicatesRemoved = idsToDelete.length;
+        console.log(`Removed ${duplicatesRemoved} duplicates`);
+      } else {
+        console.error('Error deleting duplicates:', deleteError);
+        results.errors.push(`Duplikat-Bereinigung fehlgeschlagen: ${deleteError.message}`);
+      }
+    }
+    
+    // 2. Remove non-person entries (organizations, institutions, placeholders)
+    console.log('Running non-person cleanup...');
+    const nonPersonPatterns = [
+      '%GmbH%', '%AG%', '%e.V.%', '%e. V.%', '%Stiftung%', '%Verein%',
+      '%Gemeinde%', '%Stadt %', '%Landkreis%', '%Firma%', '%Institut%',
+      '%Bestattung%', '%Friedhof%', '%Krankenhaus%', '%Klinik%',
+      '%Testanzeige%', '%Musteranzeige%', '%Beispiel%', '%Demo%',
+      '%Unbekannt%', '%N.N.%', '%NN%'
+    ];
+    
+    let nonPersonsRemoved = 0;
+    for (const pattern of nonPersonPatterns) {
+      const { data: matches, error: matchError } = await supabase
+        .from('obituaries')
+        .select('id')
+        .ilike('name', pattern);
+      
+      if (!matchError && matches && matches.length > 0) {
+        const idsToDelete = matches.map((m: { id: string }) => m.id);
+        const { error: deleteError } = await supabase
+          .from('obituaries')
+          .delete()
+          .in('id', idsToDelete);
+        
+        if (!deleteError) {
+          nonPersonsRemoved += idsToDelete.length;
+        }
+      }
+    }
+    
+    if (nonPersonsRemoved > 0) {
+      console.log(`Removed ${nonPersonsRemoved} non-person entries`);
+    }
+
     if (hardStopReason) {
       console.log('Scraping stopped early:', hardStopReason);
       return new Response(
         JSON.stringify({
           success: false,
           error: hardStopReason,
-          details: results,
+          details: { ...results, duplicatesRemoved, nonPersonsRemoved },
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -565,8 +639,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Scraped ${results.scraped} sources, inserted ${results.inserted} new obituaries (${results.skipped} already existed)`,
-        details: results
+        message: `Scraped ${results.scraped} sources, inserted ${results.inserted} new obituaries (${results.skipped} already existed). Cleanup: ${duplicatesRemoved} Duplikate, ${nonPersonsRemoved} Nicht-Personen entfernt.`,
+        details: { ...results, duplicatesRemoved, nonPersonsRemoved }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
