@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, ArrowLeft } from "lucide-react";
+import bgCreate from "@/assets/bg-create.jpg";
 
 const CreateObituary = () => {
   const navigate = useNavigate();
@@ -93,13 +94,19 @@ const CreateObituary = () => {
         />
       </Helmet>
 
-      <section className="py-10 md:py-16 bg-memorial-warm border-b border-border">
-        <div className="container">
+      <section className="relative py-16 md:py-24 border-b border-border overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${bgCreate})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-background" />
+        
+        <div className="relative z-10 container">
           <div className="max-w-2xl mx-auto text-center">
-            <h1 className="font-serif text-3xl md:text-4xl font-medium text-foreground mb-4">
+            <h1 className="font-serif text-3xl md:text-4xl font-medium text-white mb-4 drop-shadow-lg">
               Traueranzeige aufgeben
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-white/90 drop-shadow-md">
               Gedenken Sie Ihren Angehörigen mit einer würdevollen Traueranzeige.
             </p>
           </div>

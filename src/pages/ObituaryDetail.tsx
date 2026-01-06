@@ -12,6 +12,7 @@ import CandleModal from "@/components/obituary/CandleModal";
 import CondolenceModal from "@/components/obituary/CondolenceModal";
 import CandlesList from "@/components/obituary/CandlesList";
 import CondolencesList from "@/components/obituary/CondolencesList";
+import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
 
 interface Obituary {
   id: string;
@@ -137,12 +138,18 @@ const ObituaryDetail = () => {
         />
       </Helmet>
 
-      {/* Breadcrumb */}
-      <div className="border-b border-border bg-memorial-warm">
-        <div className="container py-4">
+      {/* Hero Banner */}
+      <div className="relative h-48 md:h-64 overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${bgObituaryDetail})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-background" />
+        
+        <div className="relative z-10 container h-full flex items-end pb-6">
           <Link 
             to="/suche" 
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-white/90 hover:text-white transition-colors drop-shadow-md"
           >
             <ArrowLeft className="h-4 w-4" />
             Zurück zur Suche
