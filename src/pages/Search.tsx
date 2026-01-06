@@ -8,6 +8,7 @@ import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import bgSearch from "@/assets/bg-search.jpg";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -76,13 +77,19 @@ const Search = () => {
         />
       </Helmet>
 
-      <section className="py-10 md:py-16 bg-memorial-warm border-b border-border">
-        <div className="container">
-          <h1 className="font-serif text-3xl md:text-4xl font-medium text-foreground mb-6 text-center">
+      <section className="relative py-16 md:py-24 border-b border-border overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${bgSearch})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-background" />
+        
+        <div className="relative z-10 container">
+          <h1 className="font-serif text-3xl md:text-4xl font-medium text-white mb-6 text-center drop-shadow-lg">
             Traueranzeigen suchen
           </h1>
           <div className="max-w-4xl mx-auto">
-            <SearchForm />
+            <SearchForm variant="hero" />
           </div>
         </div>
       </section>
