@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import Layout from "@/components/layout/Layout";
-import SearchForm from "@/components/search/SearchForm";
-import SearchAgentForm from "@/components/search/SearchAgentForm";
+import AdvancedSearchForm, { SearchFilter } from "@/components/search/AdvancedSearchForm";
 import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,60 +10,185 @@ import bgSearch from "@/assets/bg-search.jpg";
 
 const ITEMS_PER_PAGE = 12;
 
+// Convert wildcard pattern (* ) to SQL ILIKE pattern (%)
+const wildcardToLike = (value: string): string => {
+  return value.replace(/\*/g, "%");
+};
+
+// Parse date with wildcards (e.g., "*.01.2026" -> { year: "2026", month: "01" })
+const parseDateWithWildcard = (value: string): { year?: string; month?: string; day?: string } => {
+  // Try German format DD.MM.YYYY
+  const germanMatch = value.match(/^(\d{1,2}|\*)\.(\d{1,2}|\*)\.(\d{4})$/);
+  if (germanMatch) {
+    return {
+      day: germanMatch[1] !== "*" ? germanMatch[1].padStart(2, "0") : undefined,
+      month: germanMatch[2] !== "*" ? germanMatch[2].padStart(2, "0") : undefined,
+      year: germanMatch[3],
+    };
+  }
+  
+  // Just a year
+  if (/^\d{4}$/.test(value)) {
+    return { year: value };
+  }
+
+  return {};
+};
+
 const Search = () => {
-  const [searchParams] = useSearchParams();
   const [obituaries, setObituaries] = useState<Obituary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeFilters, setActiveFilters] = useState<SearchFilter[]>([]);
 
-  const nameQuery = searchParams.get("name") || "";
-  const locationQuery = searchParams.get("location") || "";
-  const dateQuery = searchParams.get("date") || "";
+  const fetchObituaries = useCallback(async (filters: SearchFilter[], page: number) => {
+    setIsLoading(true);
 
-  useEffect(() => {
-    const fetchObituaries = async () => {
-      setIsLoading(true);
+    try {
+      const from = (page - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      // If no filters, fetch all
+      if (filters.length === 0) {
+        const { data, error, count } = await supabase
+          .from("obituaries")
+          .select("*", { count: "exact" })
+          .order("death_date", { ascending: false })
+          .range(from, to);
+
+        if (!error && data) {
+          setObituaries(data);
+          setTotalCount(count || 0);
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      // Build OR conditions for filters marked with OR
+      const orParts: string[] = [];
       
-      let query = supabase
+      // Process each filter
+      for (const filter of filters) {
+        const value = filter.value.trim();
+        if (!value) continue;
+
+        const likeValue = wildcardToLike(value);
+
+        switch (filter.field) {
+          case "name":
+            orParts.push(`name.ilike.%${likeValue}%`);
+            orParts.push(`location.ilike.%${likeValue}%`);
+            break;
+          case "nachname":
+          case "vorname":
+            orParts.push(`name.ilike.%${likeValue}%`);
+            break;
+          case "ort":
+            orParts.push(`location.ilike.%${likeValue}%`);
+            break;
+          case "quelle":
+            orParts.push(`source.ilike.%${likeValue}%`);
+            break;
+        }
+      }
+
+      // Start with base query
+      let baseQuery = supabase
         .from("obituaries")
         .select("*", { count: "exact" });
 
-      if (nameQuery) {
-        // Search in both name AND location fields for flexibility
-        query = query.or(`name.ilike.%${nameQuery}%,location.ilike.%${nameQuery}%`);
-      }
-      if (locationQuery) {
-        query = query.ilike("location", `%${locationQuery}%`);
-      }
-      if (dateQuery) {
-        query = query.eq("death_date", dateQuery);
+      // Apply date filters directly (AND logic)
+      for (const filter of filters) {
+        const value = filter.value.trim();
+        if (!value) continue;
+
+        if (filter.field === "geburtsdatum") {
+          const parts = parseDateWithWildcard(value);
+          if (parts.year && parts.month && parts.day) {
+            baseQuery = baseQuery.eq("birth_date", `${parts.year}-${parts.month}-${parts.day}`);
+          } else if (parts.year) {
+            baseQuery = baseQuery.gte("birth_date", `${parts.year}-01-01`);
+            baseQuery = baseQuery.lte("birth_date", `${parts.year}-12-31`);
+          }
+        } else if (filter.field === "sterbedatum") {
+          const parts = parseDateWithWildcard(value);
+          if (parts.year && parts.month && parts.day) {
+            baseQuery = baseQuery.eq("death_date", `${parts.year}-${parts.month}-${parts.day}`);
+          } else if (parts.year) {
+            baseQuery = baseQuery.gte("death_date", `${parts.year}-01-01`);
+            baseQuery = baseQuery.lte("death_date", `${parts.year}-12-31`);
+          }
+        } else if (filter.field === "geburtsjahr") {
+          const year = value.replace("*", "");
+          if (year) {
+            baseQuery = baseQuery.gte("birth_date", `${year}-01-01`);
+            baseQuery = baseQuery.lte("birth_date", `${year}-12-31`);
+          }
+        } else if (filter.field === "sterbejahr") {
+          const year = value.replace("*", "");
+          if (year) {
+            baseQuery = baseQuery.gte("death_date", `${year}-01-01`);
+            baseQuery = baseQuery.lte("death_date", `${year}-12-31`);
+          }
+        }
       }
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      // Apply text filters with OR logic
+      if (orParts.length > 0) {
+        baseQuery = baseQuery.or(orParts.join(","));
+      }
 
-      const { data, error, count } = await query
+      const { data, error, count } = await baseQuery
         .order("death_date", { ascending: false })
         .range(from, to);
 
       if (!error && data) {
         setObituaries(data);
         setTotalCount(count || 0);
+      } else {
+        console.error("Search error:", error);
+        setObituaries([]);
+        setTotalCount(0);
       }
-      setIsLoading(false);
-    };
+    } catch (error) {
+      console.error("Search error:", error);
+      setObituaries([]);
+      setTotalCount(0);
+    }
 
-    fetchObituaries();
-  }, [nameQuery, locationQuery, dateQuery, currentPage]);
+    setIsLoading(false);
+  }, []);
 
-  // Reset page when search params change
+  // Initial load
   useEffect(() => {
+    fetchObituaries(activeFilters, currentPage);
+  }, [currentPage, fetchObituaries, activeFilters]);
+
+  // Handle search
+  const handleSearch = useCallback((filters: SearchFilter[]) => {
+    setActiveFilters(filters);
     setCurrentPage(1);
-  }, [nameQuery, locationQuery, dateQuery]);
+  }, []);
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
-  const hasActiveSearch = nameQuery || locationQuery || dateQuery;
+  const hasActiveSearch = activeFilters.length > 0;
+
+  // Get field label for display
+  const getFieldLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      name: "Name/Ort",
+      nachname: "Nachname",
+      vorname: "Vorname",
+      ort: "Ort",
+      geburtsdatum: "Geburtsdatum",
+      sterbedatum: "Sterbedatum",
+      geburtsjahr: "Geburtsjahr",
+      sterbejahr: "Sterbejahr",
+      quelle: "Quelle",
+    };
+    return labels[field] || field;
+  };
 
   return (
     <Layout>
@@ -89,13 +212,28 @@ const Search = () => {
             Traueranzeigen suchen
           </h1>
           <div className="max-w-4xl mx-auto">
-            <SearchForm variant="hero" />
+            <AdvancedSearchForm onSearch={handleSearch} />
           </div>
         </div>
       </section>
 
       <section className="py-10 md:py-16">
         <div className="container">
+          {/* Active filters summary */}
+          {hasActiveSearch && (
+            <div className="mb-6 p-4 bg-memorial-warm rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Aktive Filter:</span>{" "}
+                {activeFilters.map((f, i) => (
+                  <span key={f.id}>
+                    {i > 0 && <span className="text-primary font-medium"> {f.operator} </span>}
+                    {getFieldLabel(f.field)}: „{f.value}"
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+
           {/* Results header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -164,7 +302,7 @@ const Search = () => {
               </p>
               {hasActiveSearch && (
                 <p className="text-sm text-muted-foreground">
-                  Versuchen Sie es mit anderen Suchbegriffen.
+                  Versuchen Sie es mit anderen Suchbegriffen oder verwenden Sie * als Platzhalter.
                 </p>
               )}
             </div>
