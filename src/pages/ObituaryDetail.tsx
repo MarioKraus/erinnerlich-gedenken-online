@@ -7,12 +7,47 @@ import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Calendar, Loader2, Heart, MessageSquare } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Loader2, Heart, MessageSquare, ExternalLink } from "lucide-react";
 import CandleModal from "@/components/obituary/CandleModal";
 import CondolenceModal from "@/components/obituary/CondolenceModal";
 import CandlesList from "@/components/obituary/CandlesList";
 import CondolencesList from "@/components/obituary/CondolencesList";
 import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
+import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
+
+// Map source names to their base URLs for linking
+const SOURCE_URL_MAP: Record<string, string> = {
+  'Trauer-Anzeigen.de': 'https://trauer-anzeigen.de/',
+  'Tagesspiegel': 'https://trauer.tagesspiegel.de/',
+  'Hamburger Abendblatt': 'https://hamburgertrauer.de/',
+  'Süddeutsche Zeitung': 'https://trauer.sueddeutsche.de/',
+  'Münchner Merkur': 'https://trauer.merkur.de/',
+  'Kölner Stadt-Anzeiger': 'https://www.wirtrauern.de/',
+  'Frankfurter Allgemeine': 'https://lebenswege.faz.net/',
+  'Frankfurter Rundschau': 'https://trauer-rheinmain.de/',
+  'Stuttgarter Zeitung': 'https://www.stuttgart-gedenkt.de/',
+  'Rheinische Post': 'https://trauer.rp-online.de/',
+  'Leipziger Volkszeitung': 'https://trauer-anzeigen.de/',
+  'Ruhr Nachrichten': 'https://sich-erinnern.de/',
+  'WAZ': 'https://www.trauer.de/',
+  'Weser Kurier': 'https://trauer.weser-kurier.de/',
+  'Sächsische Zeitung': 'https://trauer-anzeigen.de/',
+  'HAZ': 'https://trauer-anzeigen.de/',
+  'Nürnberger Nachrichten': 'https://trauer.nn.de/',
+  'Niederrhein Nachrichten': 'https://www.trauer.niederrhein-nachrichten.de/',
+  'Trauer NRW': 'https://trauer-in-nrw.de/',
+  'Wuppertaler Rundschau': 'https://trauer.wuppertaler-rundschau.de/',
+  'Neue Westfälische': 'https://trauer.nw.de/',
+  'General-Anzeiger Bonn': 'https://trauer.ga.de/',
+  'Westfälische Nachrichten': 'https://www.trauer.ms/',
+  'Mannheimer Morgen': 'https://trauer.mannheimer-morgen.de/',
+  'BNN Karlsruhe': 'https://trauer.bnn.de/',
+  'Augsburger Allgemeine': 'https://trauer.augsburger-allgemeine.de/',
+  'Heidenheimer Zeitung': 'https://trauer.hz.de/',
+  'Rhein-Zeitung': 'https://rz-trauer.de/',
+  'Heimatfriedhof.online': 'https://heimatfriedhof.online/',
+  'Trauer und Gedenken': 'https://www.trauerundgedenken.de/',
+};
 
 interface Obituary {
   id: string;
@@ -32,6 +67,19 @@ interface Obituary {
   mourners?: string | null;
   publication_date?: string | null;
 }
+
+const getInitials = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+const getSourceUrl = (source: string | null): string | null => {
+  if (!source) return null;
+  return SOURCE_URL_MAP[source] || null;
+};
 
 const ObituaryDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -128,6 +176,8 @@ const ObituaryDetail = () => {
     return `† ${death}`;
   };
 
+  const sourceUrl = getSourceUrl(obituary.source);
+
   return (
     <Layout>
       <Helmet>
@@ -173,9 +223,17 @@ const ObituaryDetail = () => {
                     />
                   </div>
                 ) : (
-                  <div className="w-32 h-40 md:w-40 md:h-48 mx-auto mb-6 rounded-lg bg-memorial-warm flex items-center justify-center shadow-soft">
-                    <span className="font-serif text-5xl text-memorial-stone">
-                      {obituary.name.charAt(0)}
+                  <div 
+                    className="w-32 h-40 md:w-40 md:h-48 mx-auto mb-6 rounded-lg overflow-hidden shadow-soft flex items-center justify-center relative"
+                    style={{
+                      backgroundImage: `url(${avatarForestBg})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center'
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-black/20" />
+                    <span className="relative font-serif text-5xl text-white drop-shadow-lg">
+                      {getInitials(obituary.name)}
                     </span>
                   </div>
                 )}
@@ -237,9 +295,21 @@ const ObituaryDetail = () => {
 
                 {obituary.source && (
                   <div className="flex items-center gap-3 text-muted-foreground">
-                    <span className="text-xs bg-memorial-warm px-2 py-1 rounded">
-                      Quelle: {obituary.source}
-                    </span>
+                    {sourceUrl ? (
+                      <a
+                        href={sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs bg-memorial-warm px-2 py-1 rounded hover:bg-memorial-warm/80 transition-colors inline-flex items-center gap-1"
+                      >
+                        Quelle: {obituary.source}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span className="text-xs bg-memorial-warm px-2 py-1 rounded">
+                        Quelle: {obituary.source}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>

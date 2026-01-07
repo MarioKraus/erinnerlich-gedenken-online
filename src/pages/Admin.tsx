@@ -106,13 +106,68 @@ const CRON_OPTIONS = [
   { value: '0 */12 * * *', label: 'Alle 12 Stunden' },
 ];
 
+interface SourceStats {
+  source: string;
+  count: number;
+  lastImportCount: number;
+  lastImportAt: string | null;
+}
+
 const Admin = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isScrapingAll, setIsScrapingAll] = useState(false);
   const [scrapingSource, setScrapingSource] = useState<string | null>(null);
+  const [scrapingSources, setScrapingSources] = useState<Set<string>>(new Set());
   const [totalExpanded, setTotalExpanded] = useState(false);
   const [todayExpanded, setTodayExpanded] = useState(false);
+
+  // Fetch source statistics
+  const { data: sourceStats } = useQuery({
+    queryKey: ["source-stats"],
+    queryFn: async () => {
+      // Get counts by source
+      const { data: counts } = await supabase
+        .from("obituaries")
+        .select("source")
+        .order("source");
+      
+      const countMap: Record<string, number> = {};
+      counts?.forEach((item) => {
+        const src = item.source || "Unbekannt";
+        countMap[src] = (countMap[src] || 0) + 1;
+      });
+
+      // Get last import info (last 48 hours grouped by source)
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: recentBySource } = await supabase
+        .from("obituaries")
+        .select("source, created_at")
+        .gte("created_at", fortyEightHoursAgo)
+        .order("created_at", { ascending: false });
+
+      const lastImportMap: Record<string, { count: number; lastAt: string | null }> = {};
+      recentBySource?.forEach((item) => {
+        const src = item.source || "Unbekannt";
+        if (!lastImportMap[src]) {
+          lastImportMap[src] = { count: 0, lastAt: null };
+        }
+        lastImportMap[src].count++;
+        if (!lastImportMap[src].lastAt || item.created_at > lastImportMap[src].lastAt!) {
+          lastImportMap[src].lastAt = item.created_at;
+        }
+      });
+
+      const stats: SourceStats[] = NEWSPAPER_SOURCES.map((source) => ({
+        source: source.name,
+        count: countMap[source.name] || 0,
+        lastImportCount: lastImportMap[source.name]?.count || 0,
+        lastImportAt: lastImportMap[source.name]?.lastAt || null,
+      }));
+
+      return stats;
+    },
+  });
 
   const { data: obituaryStats, refetch: refetchStats } = useQuery({
     queryKey: ["obituary-stats"],
@@ -127,11 +182,14 @@ const Admin = () => {
         .select("*", { count: "exact", head: true })
         .gte("created_at", today);
 
+      // Get obituaries from last 48 hours
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
       const { data: recentObituaries } = await supabase
         .from("obituaries")
         .select("id, name, source, created_at")
+        .gte("created_at", fortyEightHoursAgo)
         .order("created_at", { ascending: false })
-        .limit(10);
+        .limit(100);
 
       const { data: allObituaries } = await supabase
         .from("obituaries")
@@ -207,6 +265,9 @@ const Admin = () => {
 
   const handleScrapeAll = async () => {
     setIsScrapingAll(true);
+    // Mark all sources as scraping
+    const allSourceIds = new Set(NEWSPAPER_SOURCES.map((s) => s.id));
+    setScrapingSources(allSourceIds);
 
     const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
     const chunk = <T,>(arr: T[], size: number) => {
@@ -265,6 +326,7 @@ const Admin = () => {
       setTimeout(() => {
         refetchStats();
         refetchSettings();
+        queryClient.invalidateQueries({ queryKey: ["source-stats"] });
       }, 2000);
     } catch (error) {
       console.error("Scraping error:", error);
@@ -275,6 +337,7 @@ const Admin = () => {
       });
     } finally {
       setIsScrapingAll(false);
+      setScrapingSources(new Set());
     }
   };
 
@@ -296,7 +359,10 @@ const Admin = () => {
         description: `${data?.details?.inserted || 0} neue Einträge importiert.`,
       });
 
-      setTimeout(() => refetchStats(), 2000);
+      setTimeout(() => {
+        refetchStats();
+        queryClient.invalidateQueries({ queryKey: ["source-stats"] });
+      }, 2000);
     } catch (error) {
       console.error("Scraping error:", error);
       toast({
@@ -311,6 +377,10 @@ const Admin = () => {
 
   const getCronLabel = (cronValue: string) => {
     return CRON_OPTIONS.find(o => o.value === cronValue)?.label || cronValue;
+  };
+
+  const getSourceStatsForName = (sourceName: string): SourceStats | undefined => {
+    return sourceStats?.find((s) => s.source === sourceName);
   };
 
   const ObituaryListItem = ({ obituary }: { obituary: { id: string; name: string; source: string | null; created_at: string } }) => (
@@ -437,7 +507,15 @@ const Admin = () => {
                 </p>
                 {scraperSettings?.last_run_at && (
                   <p className="text-xs text-muted-foreground">
-                    Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
+                    Letzter Lauf:{" "}
+                    <a
+                      href="https://supabase.com/dashboard/project/mayoefzlcnqbukodziyt/logs/edge-logs"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary hover:underline transition-colors"
+                    >
+                      {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
+                    </a>
                   </p>
                 )}
               </div>
@@ -510,62 +588,88 @@ const Admin = () => {
                   </>
                 )}
               </Button>
-              <Button variant="outline" onClick={() => refetchStats()}>
+              <Button variant="outline" onClick={() => {
+                refetchStats();
+                queryClient.invalidateQueries({ queryKey: ["source-stats"] });
+              }}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Statistik aktualisieren
               </Button>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {NEWSPAPER_SOURCES.map((source) => (
-                <Card key={source.id} className="p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <a 
-                        href={source.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-medium text-sm hover:text-primary hover:underline transition-colors"
-                      >
-                        {source.name}
-                      </a>
-                      <div className="flex items-center gap-1">
+              {NEWSPAPER_SOURCES.map((source) => {
+                const stats = getSourceStatsForName(source.name);
+                const isSourceScraping = scrapingSource === source.id || (isScrapingAll && scrapingSources.has(source.id));
+                
+                return (
+                  <Card key={source.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
                         <a 
                           href={source.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-muted-foreground truncate hover:text-primary transition-colors flex items-center gap-1"
+                          className="font-medium text-sm hover:text-primary hover:underline transition-colors"
                         >
-                          <span className="truncate max-w-[150px]">{new URL(source.url).hostname}</span>
-                          <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          {source.name}
                         </a>
+                        <div className="flex items-center gap-1">
+                          <a 
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground truncate hover:text-primary transition-colors flex items-center gap-1"
+                          >
+                            <span className="truncate max-w-[150px]">{new URL(source.url).hostname}</span>
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                          </a>
+                        </div>
+                        {/* Source statistics */}
+                        <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                          <p>
+                            <span className="font-medium text-foreground">{stats?.count || 0}</span> Einträge
+                          </p>
+                          {stats?.lastImportCount && stats.lastImportCount > 0 ? (
+                            <p className="text-green-600">
+                              +{stats.lastImportCount} in letzten 48h
+                            </p>
+                          ) : (
+                            <p className="text-muted-foreground/60">Keine neuen in 48h</p>
+                          )}
+                          {stats?.lastImportAt && (
+                            <p className="text-muted-foreground/80">
+                              Letzter: {new Date(stats.lastImportAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleScrapeSource(source.id)}
+                        disabled={isScrapingAll || scrapingSource === source.id}
+                      >
+                        {isSourceScraping ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleScrapeSource(source.id)}
-                      disabled={isScrapingAll || scrapingSource === source.id}
-                    >
-                      {scrapingSource === source.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
-        {/* Recent Obituaries */}
+        {/* Recent Obituaries - Last 48 hours */}
         <Card>
           <CardHeader>
             <CardTitle>Zuletzt importiert</CardTitle>
             <CardDescription>
-              Die letzten 10 importierten Traueranzeigen.
+              Traueranzeigen der letzten 48 Stunden ({obituaryStats?.recent?.length || 0} Einträge).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -578,7 +682,7 @@ const Admin = () => {
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                 <AlertCircle className="h-5 w-5" />
-                <p>Noch keine Traueranzeigen importiert.</p>
+                <p>Keine Traueranzeigen in den letzten 48 Stunden importiert.</p>
               </div>
             )}
           </CardContent>
