@@ -506,8 +506,9 @@ const Admin = () => {
                   {getCronLabel(scraperSettings?.cron_interval || '0 * * * *')}
                 </p>
                 {scraperSettings?.last_run_at && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
                     Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
+                    <span className="text-muted-foreground/60">(Logs im Backend)</span>
                   </p>
                 )}
               </div>
