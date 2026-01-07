@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
 
 export interface Obituary {
   id: string;
@@ -17,6 +18,15 @@ export interface Obituary {
 interface ObituaryCardProps {
   obituary: Obituary;
 }
+
+const getInitials = (name: string): string => {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+  // First and last name initials
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
 
 const ObituaryCard = ({ obituary }: ObituaryCardProps) => {
   const formatDate = (dateString: string | null) => {
@@ -54,9 +64,17 @@ const ObituaryCard = ({ obituary }: ObituaryCardProps) => {
               />
             </div>
           ) : (
-            <div className="flex-shrink-0 w-20 h-24 rounded bg-memorial-warm flex items-center justify-center">
-              <span className="font-serif text-2xl text-memorial-stone">
-                {obituary.name.charAt(0)}
+            <div 
+              className="flex-shrink-0 w-20 h-24 rounded overflow-hidden flex items-center justify-center relative"
+              style={{ 
+                backgroundImage: `url(${avatarForestBg})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+              }}
+            >
+              <div className="absolute inset-0 bg-black/20" />
+              <span className="relative font-serif text-2xl text-white drop-shadow-lg">
+                {getInitials(obituary.name)}
               </span>
             </div>
           )}
