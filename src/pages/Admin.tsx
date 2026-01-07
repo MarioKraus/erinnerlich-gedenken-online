@@ -507,15 +507,7 @@ const Admin = () => {
                 </p>
                 {scraperSettings?.last_run_at && (
                   <p className="text-xs text-muted-foreground">
-                    Letzter Lauf:{" "}
-                    <a
-                      href="https://supabase.com/dashboard/project/mayoefzlcnqbukodziyt/logs/edge-logs"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-primary hover:underline transition-colors"
-                    >
-                      {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
-                    </a>
+                    Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
                   </p>
                 )}
               </div>
