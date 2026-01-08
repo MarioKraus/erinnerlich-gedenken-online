@@ -265,9 +265,7 @@ const Admin = () => {
 
   const handleScrapeAll = async () => {
     setIsScrapingAll(true);
-    // Mark all sources as scraping
-    const allSourceIds = new Set(NEWSPAPER_SOURCES.map((s) => s.id));
-    setScrapingSources(allSourceIds);
+    setScrapingSources(new Set());
 
     const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
     const chunk = <T,>(arr: T[], size: number) => {
@@ -287,6 +285,9 @@ const Admin = () => {
 
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i];
+        
+        // Update which sources are currently being scraped
+        setScrapingSources(new Set(batch));
 
         const { data, error } = await supabase.functions.invoke("scrape-obituaries", {
           body: { sources: batch },
@@ -508,7 +509,6 @@ const Admin = () => {
                 {scraperSettings?.last_run_at && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
-                    <span className="text-muted-foreground/60">(Logs im Backend)</span>
                   </p>
                 )}
               </div>
