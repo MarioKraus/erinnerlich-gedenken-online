@@ -7,9 +7,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/layout/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MapPin, Calendar, Loader2, Heart, MessageSquare, ExternalLink } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Loader2, Heart, MessageSquare, ExternalLink, Edit } from "lucide-react";
 import CandleModal from "@/components/obituary/CandleModal";
 import CondolenceModal from "@/components/obituary/CondolenceModal";
+import EditObituaryModal from "@/components/obituary/EditObituaryModal";
 import CandlesList from "@/components/obituary/CandlesList";
 import CondolencesList from "@/components/obituary/CondolencesList";
 import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
@@ -27,12 +28,9 @@ const SOURCE_URL_MAP: Record<string, string> = {
   'Frankfurter Rundschau': 'https://trauer-rheinmain.de/',
   'Stuttgarter Zeitung': 'https://www.stuttgart-gedenkt.de/',
   'Rheinische Post': 'https://trauer.rp-online.de/',
-  'Leipziger Volkszeitung': 'https://trauer-anzeigen.de/',
   'Ruhr Nachrichten': 'https://sich-erinnern.de/',
   'WAZ': 'https://www.trauer.de/',
   'Weser Kurier': 'https://trauer.weser-kurier.de/',
-  'Sächsische Zeitung': 'https://trauer-anzeigen.de/',
-  'HAZ': 'https://trauer-anzeigen.de/',
   'Nürnberger Nachrichten': 'https://trauer.nn.de/',
   'Niederrhein Nachrichten': 'https://www.trauer.niederrhein-nachrichten.de/',
   'Trauer NRW': 'https://trauer-in-nrw.de/',
@@ -45,6 +43,20 @@ const SOURCE_URL_MAP: Record<string, string> = {
   'Augsburger Allgemeine': 'https://trauer.augsburger-allgemeine.de/',
   'Heidenheimer Zeitung': 'https://trauer.hz.de/',
   'Rhein-Zeitung': 'https://rz-trauer.de/',
+  'Mainpost': 'https://trauer.mainpost.de/',
+  'VRM Trauer': 'https://vrm-trauer.de/',
+  'Die Glocke': 'https://trauer.die-glocke.de/',
+  'Saarbrücker Zeitung': 'https://saarbruecker-zeitung.trauer.de/',
+  'HNA': 'https://trauer.hna.de/',
+  'Freie Presse': 'https://gedenken.freiepresse.de/',
+  'Westfalen Nachrichten': 'https://wn-trauer.de/',
+  'Trierischer Volksfreund': 'https://volksfreund.trauer.de/',
+  'Hersfelder Zeitung': 'https://trauer.hersfelder-zeitung.de/',
+  'Kreiszeitung': 'https://trauer.kreiszeitung.de/',
+  'WLZ': 'https://trauer.wlz.de/',
+  'Fränkische Nachrichten': 'https://trauer.fnweb.de/',
+  'SVZ': 'https://svz.de/traueranzeigen/',
+  'Trauerfall.de': 'https://trauerfall.de/',
   'Heimatfriedhof.online': 'https://heimatfriedhof.online/',
   'Trauer und Gedenken': 'https://www.trauerundgedenken.de/',
 };
@@ -89,6 +101,10 @@ const ObituaryDetail = () => {
   const [notFound, setNotFound] = useState(false);
   const [candleModalOpen, setCandleModalOpen] = useState(false);
   const [condolenceModalOpen, setCondolenceModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  
+  // Simple admin check - in production, use proper auth
+  const isAdmin = window.location.search.includes("admin=true") || localStorage.getItem("isAdmin") === "true";
 
   useEffect(() => {
     const fetchObituary = async () => {
@@ -196,7 +212,7 @@ const ObituaryDetail = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-background" />
         
-        <div className="relative z-10 container h-full flex items-end pb-6">
+        <div className="relative z-10 container h-full flex items-end justify-between pb-6">
           <Link 
             to="/suche" 
             className="inline-flex items-center gap-2 text-sm text-white/90 hover:text-white transition-colors drop-shadow-md"
@@ -204,6 +220,18 @@ const ObituaryDetail = () => {
             <ArrowLeft className="h-4 w-4" />
             Zurück zur Suche
           </Link>
+          
+          {isAdmin && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="gap-2"
+              onClick={() => setEditModalOpen(true)}
+            >
+              <Edit className="h-4 w-4" />
+              Bearbeiten
+            </Button>
+          )}
         </div>
       </div>
 
@@ -359,6 +387,18 @@ const ObituaryDetail = () => {
         obituaryName={obituary.name}
         onSuccess={handleCondolenceSuccess}
       />
+      
+      {isAdmin && (
+        <EditObituaryModal
+          open={editModalOpen}
+          onOpenChange={setEditModalOpen}
+          obituary={obituary}
+          onSuccess={() => {
+            // Refetch obituary
+            window.location.reload();
+          }}
+        />
+      )}
     </Layout>
   );
 };
