@@ -65,81 +65,93 @@ const Search = () => {
         return;
       }
 
-      // Build OR conditions for filters marked with OR
-      const orParts: string[] = [];
-      
-      // Process each filter
-      for (const filter of filters) {
-        const value = filter.value.trim();
-        if (!value) continue;
-
-        const likeValue = wildcardToLike(value);
-
-        switch (filter.field) {
-          case "name":
-            orParts.push(`name.ilike.%${likeValue}%`);
-            orParts.push(`location.ilike.%${likeValue}%`);
-            break;
-          case "nachname":
-          case "vorname":
-            orParts.push(`name.ilike.%${likeValue}%`);
-            break;
-          case "ort":
-            orParts.push(`location.ilike.%${likeValue}%`);
-            break;
-          case "quelle":
-            orParts.push(`source.ilike.%${likeValue}%`);
-            break;
-        }
-      }
-
-      // Start with base query
-      let baseQuery = supabase
+      // Build query with filters
+      let query = supabase
         .from("obituaries")
         .select("*", { count: "exact" });
 
-      // Apply date filters directly (AND logic)
+      // Separate text-based and date-based filters
+      const textFilters: SearchFilter[] = [];
+      const dateFilters: SearchFilter[] = [];
+      
       for (const filter of filters) {
         const value = filter.value.trim();
         if (!value) continue;
+
+        if (["geburtsdatum", "sterbedatum", "geburtsjahr", "sterbejahr"].includes(filter.field)) {
+          dateFilters.push(filter);
+        } else {
+          textFilters.push(filter);
+        }
+      }
+
+      // Apply date filters (AND logic)
+      for (const filter of dateFilters) {
+        const value = filter.value.trim();
 
         if (filter.field === "geburtsdatum") {
           const parts = parseDateWithWildcard(value);
           if (parts.year && parts.month && parts.day) {
-            baseQuery = baseQuery.eq("birth_date", `${parts.year}-${parts.month}-${parts.day}`);
+            query = query.eq("birth_date", `${parts.year}-${parts.month}-${parts.day}`);
           } else if (parts.year) {
-            baseQuery = baseQuery.gte("birth_date", `${parts.year}-01-01`);
-            baseQuery = baseQuery.lte("birth_date", `${parts.year}-12-31`);
+            query = query.gte("birth_date", `${parts.year}-01-01`);
+            query = query.lte("birth_date", `${parts.year}-12-31`);
           }
         } else if (filter.field === "sterbedatum") {
           const parts = parseDateWithWildcard(value);
           if (parts.year && parts.month && parts.day) {
-            baseQuery = baseQuery.eq("death_date", `${parts.year}-${parts.month}-${parts.day}`);
+            query = query.eq("death_date", `${parts.year}-${parts.month}-${parts.day}`);
           } else if (parts.year) {
-            baseQuery = baseQuery.gte("death_date", `${parts.year}-01-01`);
-            baseQuery = baseQuery.lte("death_date", `${parts.year}-12-31`);
+            query = query.gte("death_date", `${parts.year}-01-01`);
+            query = query.lte("death_date", `${parts.year}-12-31`);
           }
         } else if (filter.field === "geburtsjahr") {
           const year = value.replace("*", "");
           if (year) {
-            baseQuery = baseQuery.gte("birth_date", `${year}-01-01`);
-            baseQuery = baseQuery.lte("birth_date", `${year}-12-31`);
+            query = query.gte("birth_date", `${year}-01-01`);
+            query = query.lte("birth_date", `${year}-12-31`);
           }
         } else if (filter.field === "sterbejahr") {
           const year = value.replace("*", "");
           if (year) {
-            baseQuery = baseQuery.gte("death_date", `${year}-01-01`);
-            baseQuery = baseQuery.lte("death_date", `${year}-12-31`);
+            query = query.gte("death_date", `${year}-01-01`);
+            query = query.lte("death_date", `${year}-12-31`);
           }
         }
       }
 
-      // Apply text filters with OR logic
-      if (orParts.length > 0) {
-        baseQuery = baseQuery.or(orParts.join(","));
+      // Apply text filters
+      if (textFilters.length > 0) {
+        const orParts: string[] = [];
+        
+        for (const filter of textFilters) {
+          const value = filter.value.trim();
+          const likeValue = wildcardToLike(value);
+
+          switch (filter.field) {
+            case "name":
+              orParts.push(`name.ilike.%${likeValue}%`);
+              orParts.push(`location.ilike.%${likeValue}%`);
+              break;
+            case "nachname":
+            case "vorname":
+              orParts.push(`name.ilike.%${likeValue}%`);
+              break;
+            case "ort":
+              orParts.push(`location.ilike.%${likeValue}%`);
+              break;
+            case "quelle":
+              orParts.push(`source.ilike.%${likeValue}%`);
+              break;
+          }
+        }
+
+        if (orParts.length > 0) {
+          query = query.or(orParts.join(","));
+        }
       }
 
-      const { data, error, count } = await baseQuery
+      const { data, error, count } = await query
         .order("death_date", { ascending: false })
         .range(from, to);
 
