@@ -17,80 +17,49 @@ const NEWSPAPER_SOURCES = [
   // National portal
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   
-  // 1. Berlin
+  // Major cities
   { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
-  
-  // 2. Hamburg
   { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
-  
-  // 3. München
   { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
-  
-  // 4. Köln
   { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
-  
-  // 5. Frankfurt
   { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 6. Stuttgart
   { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 7. Düsseldorf
   { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 8. Leipzig
-  { id: 'leipzig', name: 'Leipziger Volkszeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-leipzig' },
-  
-  // 9. Dortmund
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
-  
-  // 10. Essen
   { id: 'waz', name: 'WAZ', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
-  
-  // 11. Bremen
   { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 12. Dresden
-  { id: 'dresden', name: 'Sächsische Zeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-dresden' },
-  
-  // 13. Hannover
-  { id: 'hannover', name: 'HAZ', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-hannover' },
-  
-  // 14. Nürnberg
-  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 15. Duisburg
+  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/letzte-14-tage' },
   { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
-  
-  // 16. Bochum
   { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 17. Wuppertal
   { id: 'wuppertal', name: 'Wuppertaler Rundschau', url: 'https://trauer.wuppertaler-rundschau.de/traueranzeigen-suche/letzte-14-tage' },
-  
-  // 18. Bielefeld
   { id: 'bielefeld', name: 'Neue Westfälische', url: 'https://trauer.nw.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 19. Bonn
   { id: 'bonn', name: 'General-Anzeiger Bonn', url: 'https://trauer.ga.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 20. Münster
   { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 21. Mannheim
   { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
-  
-  // 22. Karlsruhe
   { id: 'karlsruhe', name: 'BNN Karlsruhe', url: 'https://trauer.bnn.de/' },
-  
-  // 23. Augsburg
   { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
-  // Additional regional
+  // Regional sources
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
+  { id: 'mainpost', name: 'Mainpost', url: 'https://trauer.mainpost.de/' },
+  
+  // New sources
+  { id: 'vrm-trauer', name: 'VRM Trauer', url: 'https://vrm-trauer.de/' },
+  { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
+  { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
+  { id: 'hna', name: 'HNA', url: 'https://trauer.hna.de/' },
+  { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
+  { id: 'wn', name: 'Westfalen Nachrichten', url: 'https://wn-trauer.de/' },
+  { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
+  { id: 'hersfelder', name: 'Hersfelder Zeitung', url: 'https://trauer.hersfelder-zeitung.de/' },
+  { id: 'kreiszeitung', name: 'Kreiszeitung', url: 'https://trauer.kreiszeitung.de/' },
+  { id: 'wlz', name: 'WLZ', url: 'https://trauer.wlz.de/' },
+  { id: 'fnweb', name: 'Fränkische Nachrichten', url: 'https://trauer.fnweb.de/' },
+  { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
+  { id: 'trauerfall', name: 'Trauerfall.de', url: 'https://trauerfall.de/' },
   
   // Community portals
   { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
@@ -419,13 +388,26 @@ const Admin = () => {
       </Helmet>
 
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-serif text-foreground mb-2">
-            Scraping-Administration
-          </h1>
-          <p className="text-muted-foreground">
-            Überwachen und steuern Sie das automatische Scraping von Traueranzeigen.
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-serif text-foreground mb-2">
+              Scraping-Administration
+            </h1>
+            <p className="text-muted-foreground">
+              Überwachen und steuern Sie das automatische Scraping von Traueranzeigen.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const isAdmin = localStorage.getItem("isAdmin") === "true";
+              localStorage.setItem("isAdmin", isAdmin ? "false" : "true");
+              window.location.reload();
+            }}
+          >
+            {localStorage.getItem("isAdmin") === "true" ? "Admin-Modus: AN" : "Admin-Modus: AUS"}
+          </Button>
         </div>
 
         {/* Stats Cards */}

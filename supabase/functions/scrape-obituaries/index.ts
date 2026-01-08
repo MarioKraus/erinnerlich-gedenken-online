@@ -33,9 +33,6 @@ const OBITUARY_SOURCES = [
   // 7. Düsseldorf
   { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
-  // 8. Leipzig
-  { id: 'leipzig', name: 'Leipziger Volkszeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-leipzig' },
-  
   // 9. Dortmund (Ruhr Nachrichten)
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   
@@ -45,13 +42,7 @@ const OBITUARY_SOURCES = [
   // 11. Bremen
   { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
-  // 12. Dresden
-  { id: 'dresden', name: 'Sächsische Zeitung', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-dresden' },
-  
-  // 13. Hannover
-  { id: 'hannover', name: 'HAZ', url: 'https://trauer-anzeigen.de/traueranzeigen-suche/letzte-14-tage/region-hannover' },
-  
-  // 14. Nürnberg - use letzte-14-tage for better content
+  // 14. Nürnberg
   { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/letzte-14-tage' },
   
   // 15. Duisburg
@@ -81,13 +72,26 @@ const OBITUARY_SOURCES = [
   // 23. Augsburg
   { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
-  // Additional regional
+  // Regional sources
   { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
-
-  // 24. Würzburg (Mainpost Zeitungsgruppe)
   { id: 'mainpost', name: 'Mainpost', url: 'https://trauer.mainpost.de/' },
-
+  
+  // NEW SOURCES
+  { id: 'vrm-trauer', name: 'VRM Trauer', url: 'https://vrm-trauer.de/' },
+  { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
+  { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
+  { id: 'hna', name: 'HNA', url: 'https://trauer.hna.de/' },
+  { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
+  { id: 'wn', name: 'Westfalen Nachrichten', url: 'https://wn-trauer.de/' },
+  { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
+  { id: 'hersfelder', name: 'Hersfelder Zeitung', url: 'https://trauer.hersfelder-zeitung.de/' },
+  { id: 'kreiszeitung', name: 'Kreiszeitung', url: 'https://trauer.kreiszeitung.de/' },
+  { id: 'wlz', name: 'WLZ', url: 'https://trauer.wlz.de/' },
+  { id: 'fnweb', name: 'Fränkische Nachrichten', url: 'https://trauer.fnweb.de/' },
+  { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
+  { id: 'trauerfall', name: 'Trauerfall.de', url: 'https://trauerfall.de/' },
+  
   // Community portals
   { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
   { id: 'trauerundgedenken', name: 'Trauer und Gedenken', url: 'https://www.trauerundgedenken.de/traueranzeigen-suche/letzte-14-tage' },
@@ -362,7 +366,7 @@ function extractBirthDate(text: string): string | null {
 
 function extractLocationFromSource(source: string): string | null {
   const sourceLocationMap: Record<string, string | null> = {
-    // Top 25 cities
+    // Major cities
     'Tagesspiegel': 'Berlin',
     'Hamburger Abendblatt': 'Hamburg',
     'Süddeutsche Zeitung': 'München',
@@ -372,12 +376,9 @@ function extractLocationFromSource(source: string): string | null {
     'Frankfurter Rundschau': 'Frankfurt',
     'Stuttgarter Zeitung': 'Stuttgart',
     'Rheinische Post': 'Düsseldorf',
-    'Leipziger Volkszeitung': 'Leipzig',
     'Ruhr Nachrichten': 'Dortmund',
     'WAZ': 'Essen',
     'Weser Kurier': 'Bremen',
-    'Sächsische Zeitung': 'Dresden',
-    'HAZ': 'Hannover',
     'Nürnberger Nachrichten': 'Nürnberg',
     'Niederrhein Nachrichten': 'Duisburg',
     'Trauer NRW': 'Bochum',
@@ -388,10 +389,24 @@ function extractLocationFromSource(source: string): string | null {
     'Mannheimer Morgen': 'Mannheim',
     'BNN Karlsruhe': 'Karlsruhe',
     'Augsburger Allgemeine': 'Augsburg',
-    // Additional
+    // Regional
     'Rhein-Zeitung': 'Koblenz',
     'Heidenheimer Zeitung': 'Heidenheim',
     'Mainpost': 'Würzburg',
+    // New sources
+    'VRM Trauer': 'Mainz',
+    'Die Glocke': 'Oelde',
+    'Saarbrücker Zeitung': 'Saarbrücken',
+    'HNA': 'Kassel',
+    'Freie Presse': 'Chemnitz',
+    'Westfalen Nachrichten': 'Münster',
+    'Trierischer Volksfreund': 'Trier',
+    'Hersfelder Zeitung': 'Bad Hersfeld',
+    'Kreiszeitung': 'Syke',
+    'WLZ': 'Korbach',
+    'Fränkische Nachrichten': 'Tauberbischofsheim',
+    'SVZ': 'Schwerin',
+    'Trauerfall.de': null,
     'Trauer-Anzeigen.de': null
   };
   return sourceLocationMap[source] ?? null;
