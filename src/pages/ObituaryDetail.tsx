@@ -15,6 +15,7 @@ import CandlesList from "@/components/obituary/CandlesList";
 import CondolencesList from "@/components/obituary/CondolencesList";
 import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
 import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
+import { getAvatarOverlayColor, getImageColorFilter, getPageOverlayGradient } from "@/lib/colorVariations";
 
 // Map source names to their base URLs for linking
 const SOURCE_URL_MAP: Record<string, string> = {
@@ -204,13 +205,20 @@ const ObituaryDetail = () => {
         />
       </Helmet>
 
-      {/* Hero Banner */}
+      {/* Hero Banner with unique color tint */}
       <div className="relative h-48 md:h-64 overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${bgObituaryDetail})` }}
+          style={{ 
+            backgroundImage: `url(${bgObituaryDetail})`,
+            filter: getImageColorFilter(obituary.id)
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-background" />
+        <div 
+          className="absolute inset-0"
+          style={{ background: getPageOverlayGradient(obituary.id) }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background" />
         
         <div className="relative z-10 container h-full flex items-end justify-between pb-6">
           <Link 
@@ -253,13 +261,20 @@ const ObituaryDetail = () => {
                 ) : (
                   <div 
                     className="w-32 h-40 md:w-40 md:h-48 mx-auto mb-6 rounded-lg overflow-hidden shadow-soft flex items-center justify-center relative"
-                    style={{
-                      backgroundImage: `url(${avatarForestBg})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center'
-                    }}
                   >
-                    <div className="absolute inset-0 bg-black/20" />
+                    <div 
+                      className="absolute inset-0"
+                      style={{
+                        backgroundImage: `url(${avatarForestBg})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        filter: getImageColorFilter(obituary.id)
+                      }}
+                    />
+                    <div 
+                      className="absolute inset-0" 
+                      style={{ backgroundColor: getAvatarOverlayColor(obituary.id) }}
+                    />
                     <span className="relative font-serif text-5xl text-white drop-shadow-lg">
                       {getInitials(obituary.name)}
                     </span>
