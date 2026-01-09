@@ -166,6 +166,37 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   const today = new Date().toISOString().split('T')[0];
   const seenNames = new Set<string>();
   
+  // Build a map of names to photo URLs from the markdown
+  const photoUrlMap = new Map<string, string>();
+  
+  // Extract image URLs: [![Name](imageUrl)](link) or ![Name](imageUrl)
+  const imagePatterns = [
+    // [![Traueranzeige von Name](imageUrl)](link)
+    /\[!\[(?:Traueranzeige von\s+)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\]\(([^)]+)\)\]/gi,
+    // ![Name](imageUrl)
+    /!\[(?:Traueranzeige von\s+)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\]\(([^)]+)\)/gi,
+  ];
+  
+  for (const pattern of imagePatterns) {
+    let imgMatch;
+    pattern.lastIndex = 0;
+    while ((imgMatch = pattern.exec(markdown)) !== null) {
+      const name = imgMatch[1].trim().toLowerCase();
+      const imageUrl = imgMatch[2].trim();
+      // Only store valid image URLs (not icons, logos, etc.)
+      if (imageUrl && 
+          !imageUrl.includes('icon') && 
+          !imageUrl.includes('logo') && 
+          !imageUrl.includes('kerze') &&
+          !imageUrl.includes('button') &&
+          (imageUrl.includes('.jpg') || imageUrl.includes('.jpeg') || imageUrl.includes('.png') || imageUrl.includes('.webp') || imageUrl.includes('image') || imageUrl.includes('foto') || imageUrl.includes('bild'))) {
+        photoUrlMap.set(name, imageUrl);
+      }
+    }
+  }
+  
+  console.log(`Found ${photoUrlMap.size} photo URLs in markdown`);
+  
   // Blacklist of non-name strings (lowercase)
   const blacklist = new Set([
     'prominente trauerfälle', 'aktuelle traueranzeigen', 'weitere trauerfälle', 
@@ -222,7 +253,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         location: extractLocationFromSource(source),
         text: null,
         source,
-        photo_url: null
+        photo_url: photoUrlMap.get(name.toLowerCase()) || null
       });
     }
   }
@@ -249,7 +280,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         location: extractLocationFromSource(source),
         text: null,
         source,
-        photo_url: null
+        photo_url: photoUrlMap.get(name.toLowerCase()) || null
       });
     }
   }
@@ -278,7 +309,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
           location: extractLocationFromSource(source),
           text: null,
           source,
-          photo_url: null
+          photo_url: photoUrlMap.get(name.toLowerCase()) || null
         });
       }
     }
@@ -298,7 +329,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         location: extractLocationFromSource(source),
         text: null,
         source,
-        photo_url: null
+        photo_url: photoUrlMap.get(name.toLowerCase()) || null
       });
     }
   }
@@ -318,7 +349,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         location: extractLocationFromSource(source),
         text: null,
         source,
-        photo_url: null
+        photo_url: photoUrlMap.get(name.toLowerCase()) || null
       });
     }
   }
