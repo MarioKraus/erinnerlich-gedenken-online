@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Search, FileText, Calendar, ArrowRight } from "lucide-react";
 import heroForest from "@/assets/hero-forest.jpg";
+import { PAGE_COLORS } from "@/lib/colorVariations";
 
 const Index = () => {
   const [recentObituaries, setRecentObituaries] = useState<Obituary[]>([]);
@@ -44,9 +45,17 @@ const Index = () => {
       <section className="relative min-h-[420px] flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroForest})` }}
+          style={{ 
+            backgroundImage: `url(${heroForest})`,
+            filter: `sepia(12%) hue-rotate(${PAGE_COLORS.index.hue - 140}deg) saturate(105%)`
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-transparent" />
+        <div 
+          className="absolute inset-0"
+          style={{ 
+            background: `linear-gradient(to bottom, hsla(${PAGE_COLORS.index.hue}, 20%, 20%, 0.35), hsla(${PAGE_COLORS.index.hue}, 15%, 15%, 0.2), transparent)`
+          }}
+        />
         
         <div className="relative z-10 container text-center py-16">
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-medium text-white mb-4 leading-tight drop-shadow-lg">

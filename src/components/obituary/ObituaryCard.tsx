@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
+import { getAvatarOverlayColor, getImageColorFilter } from "@/lib/colorVariations";
 
 export interface Obituary {
   id: string;
@@ -66,13 +67,20 @@ const ObituaryCard = ({ obituary }: ObituaryCardProps) => {
           ) : (
             <div 
               className="flex-shrink-0 w-20 h-24 rounded overflow-hidden flex items-center justify-center relative"
-              style={{ 
-                backgroundImage: `url(${avatarForestBg})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center'
-              }}
             >
-              <div className="absolute inset-0 bg-black/20" />
+              <div 
+                className="absolute inset-0"
+                style={{ 
+                  backgroundImage: `url(${avatarForestBg})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: getImageColorFilter(obituary.id)
+                }}
+              />
+              <div 
+                className="absolute inset-0" 
+                style={{ backgroundColor: getAvatarOverlayColor(obituary.id) }}
+              />
               <span className="relative font-serif text-2xl text-white drop-shadow-lg">
                 {getInitials(obituary.name)}
               </span>

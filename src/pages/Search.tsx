@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import bgSearch from "@/assets/bg-search.jpg";
+import { PAGE_COLORS } from "@/lib/colorVariations";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -215,9 +216,17 @@ const Search = () => {
       <section className="relative py-16 md:py-24 border-b border-border overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${bgSearch})` }}
+          style={{ 
+            backgroundImage: `url(${bgSearch})`,
+            filter: `sepia(15%) hue-rotate(${PAGE_COLORS.search.hue - 140}deg) saturate(95%)`
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-background" />
+        <div 
+          className="absolute inset-0"
+          style={{ 
+            background: `linear-gradient(to bottom, hsla(${PAGE_COLORS.search.hue}, 18%, 22%, 0.4), hsla(${PAGE_COLORS.search.hue}, 15%, 18%, 0.3), hsl(var(--background)))`
+          }}
+        />
         
         <div className="relative z-10 container">
           <h1 className="font-serif text-3xl md:text-4xl font-medium text-white mb-6 text-center drop-shadow-lg">

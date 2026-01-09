@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, ArrowRight, ArrowLeft } from "lucide-react";
 import bgCreate from "@/assets/bg-create.jpg";
+import { PAGE_COLORS } from "@/lib/colorVariations";
 
 const CreateObituary = () => {
   const navigate = useNavigate();
@@ -97,9 +98,17 @@ const CreateObituary = () => {
       <section className="relative py-16 md:py-24 border-b border-border overflow-hidden">
         <div 
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${bgCreate})` }}
+          style={{ 
+            backgroundImage: `url(${bgCreate})`,
+            filter: `sepia(18%) hue-rotate(${PAGE_COLORS.create.hue - 140}deg) saturate(110%)`
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/30 to-background" />
+        <div 
+          className="absolute inset-0"
+          style={{ 
+            background: `linear-gradient(to bottom, hsla(${PAGE_COLORS.create.hue}, 22%, 25%, 0.4), hsla(${PAGE_COLORS.create.hue}, 18%, 20%, 0.3), hsl(var(--background)))`
+          }}
+        />
         
         <div className="relative z-10 container">
           <div className="max-w-2xl mx-auto text-center">
