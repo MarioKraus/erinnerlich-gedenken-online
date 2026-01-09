@@ -177,11 +177,18 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     /!\[(?:Traueranzeige von\s+)?([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\]\(([^)]+)\)/gi,
   ];
   
+  // Helper to clean source from image alt names
+  const cleanSourceFromImageName = (name: string): string => {
+    return name.replace(/\s+von\s+.+$/i, '').trim();
+  };
+  
   for (const pattern of imagePatterns) {
     let imgMatch;
     pattern.lastIndex = 0;
     while ((imgMatch = pattern.exec(markdown)) !== null) {
-      const name = imgMatch[1].trim().toLowerCase();
+      let name = imgMatch[1].trim();
+      // Clean source attribution from name before lowercasing
+      name = cleanSourceFromImageName(name).toLowerCase();
       const imageUrl = imgMatch[2].trim();
       // Only store valid image URLs (not icons, logos, etc.)
       if (imageUrl && 
@@ -570,7 +577,7 @@ Deno.serve(async (req) => {
           // Check if already exists (by name and death_date)
           const { data: existing } = await supabase
             .from('obituaries')
-            .select('id')
+            .select('id, photo_url')
             .eq('name', obituary.name)
             .eq('death_date', obituary.death_date)
             .maybeSingle();
@@ -588,6 +595,19 @@ Deno.serve(async (req) => {
               results.bySource[source.name].inserted++;
             }
           } else {
+            // Update photo_url if existing entry has none but new data has one
+            if (!existing.photo_url && obituary.photo_url) {
+              const { error: updateError } = await supabase
+                .from('obituaries')
+                .update({ photo_url: obituary.photo_url })
+                .eq('id', existing.id);
+              
+              if (updateError) {
+                console.error('Photo URL update error:', updateError);
+              } else {
+                console.log(`Updated photo_url for ${obituary.name}`);
+              }
+            }
             results.skipped++;
           }
         }
