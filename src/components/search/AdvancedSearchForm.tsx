@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,8 @@ export interface SearchFilter {
 export interface AdvancedSearchFormProps {
   onSearch: (filters: SearchFilter[]) => void;
   initialFilters?: SearchFilter[];
+  initialSimpleSearch?: string;
+  defaultAdvancedOpen?: boolean;
 }
 
 const FILTER_FIELDS = [
@@ -73,23 +75,35 @@ const newspapers = [
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-const AdvancedSearchForm = ({ onSearch, initialFilters }: AdvancedSearchFormProps) => {
+const AdvancedSearchForm = ({
+  onSearch,
+  initialFilters,
+  initialSimpleSearch,
+  defaultAdvancedOpen,
+}: AdvancedSearchFormProps) => {
   const [filters, setFilters] = useState<SearchFilter[]>(
-    initialFilters?.length ? initialFilters : [
-      { id: generateId(), field: "nachname", value: "", operator: "AND" },
-    ]
+    initialFilters?.length
+      ? initialFilters
+      : [{ id: generateId(), field: "nachname", value: "", operator: "AND" }]
   );
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
-  
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(!!defaultAdvancedOpen);
+
   // Simple search state
-  const [simpleSearch, setSimpleSearch] = useState("");
+  const [simpleSearch, setSimpleSearch] = useState(initialSimpleSearch ?? "");
+
+  useEffect(() => {
+    if (typeof defaultAdvancedOpen === "boolean") setIsAdvancedOpen(defaultAdvancedOpen);
+  }, [defaultAdvancedOpen]);
+
+  useEffect(() => {
+    if (typeof initialSimpleSearch === "string") setSimpleSearch(initialSimpleSearch);
+  }, [initialSimpleSearch]);
+
+  useEffect(() => {
+    if (initialFilters?.length) setFilters(initialFilters);
+  }, [initialFilters]);
 
   const addFilter = useCallback(() => {
-    setFilters((prev) => [
-      ...prev,
-      { id: generateId(), field: "nachname", value: "", operator: "AND" },
-    ]);
-  }, []);
 
   const removeFilter = useCallback((id: string) => {
     setFilters((prev) => prev.filter((f) => f.id !== id));

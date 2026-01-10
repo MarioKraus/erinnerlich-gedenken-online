@@ -6,6 +6,7 @@ import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import bgSearch from "@/assets/bg-search.jpg";
 import { PAGE_COLORS } from "@/lib/colorVariations";
 
@@ -37,6 +38,8 @@ const parseDateWithWildcard = (value: string): { year?: string; month?: string; 
 };
 
 const Search = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [obituaries, setObituaries] = useState<Obituary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -173,16 +176,46 @@ const Search = () => {
     setIsLoading(false);
   }, []);
 
-  // Initial load
+  // Hydrate filters from URL (?name=&date=&source=) e.g. from the compact SearchForm
+  useEffect(() => {
+    const name = (searchParams.get("name") || "").trim();
+    const date = (searchParams.get("date") || "").trim();
+    const source = (searchParams.get("source") || "").trim();
+
+    const urlFilters: SearchFilter[] = [];
+    if (name) urlFilters.push({ id: "url-name", field: "name", value: name, operator: "AND" });
+    if (date) urlFilters.push({ id: "url-date", field: "sterbedatum", value: date, operator: "AND" });
+    if (source) urlFilters.push({ id: "url-source", field: "quelle", value: source, operator: "AND" });
+
+    // Only hydrate if user hasn't started a search yet.
+    if (urlFilters.length > 0 && activeFilters.length === 0) {
+      setActiveFilters(urlFilters);
+      setCurrentPage(1);
+    }
+  }, [searchParams, activeFilters.length]);
+
+  // Initial / reactive load
   useEffect(() => {
     fetchObituaries(activeFilters, currentPage);
   }, [currentPage, fetchObituaries, activeFilters]);
 
   // Handle search
-  const handleSearch = useCallback((filters: SearchFilter[]) => {
-    setActiveFilters(filters);
-    setCurrentPage(1);
-  }, []);
+  const handleSearch = useCallback(
+    (filters: SearchFilter[]) => {
+      setActiveFilters(filters);
+      setCurrentPage(1);
+
+      // Keep URL in sync for simple shareable searches
+      const next = new URLSearchParams();
+      for (const f of filters) {
+        if (f.field === "name") next.set("name", f.value);
+        if (f.field === "sterbedatum") next.set("date", f.value);
+        if (f.field === "quelle") next.set("source", f.value);
+      }
+      setSearchParams(next, { replace: true });
+    },
+    [setSearchParams]
+  );
 
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE);
   const hasActiveSearch = activeFilters.length > 0;
