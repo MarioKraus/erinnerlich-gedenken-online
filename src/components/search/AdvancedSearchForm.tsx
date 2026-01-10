@@ -104,6 +104,11 @@ const AdvancedSearchForm = ({
   }, [initialFilters]);
 
   const addFilter = useCallback(() => {
+    setFilters((prev) => [
+      ...prev,
+      { id: generateId(), field: "nachname", value: "", operator: "AND" },
+    ]);
+  }, []);
 
   const removeFilter = useCallback((id: string) => {
     setFilters((prev) => prev.filter((f) => f.id !== id));
