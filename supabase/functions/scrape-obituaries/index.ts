@@ -7,8 +7,9 @@ const corsHeaders = {
 
 // German obituary sources for Top 25 cities
 const OBITUARY_SOURCES = [
-  // National portal
+  // National portals
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
+  { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
   
   // 1. Berlin
   { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
@@ -17,7 +18,6 @@ const OBITUARY_SOURCES = [
   { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
   
   // 3. München
-  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
   
   // 4. Köln
@@ -36,14 +36,8 @@ const OBITUARY_SOURCES = [
   // 9. Dortmund (Ruhr Nachrichten)
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   
-  // 10. Essen (WAZ)
-  { id: 'waz', name: 'WAZ', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
-  
   // 11. Bremen
   { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 14. Nürnberg
-  { id: 'nuernberg', name: 'Nürnberger Nachrichten', url: 'https://trauer.nn.de/traueranzeigen-suche/letzte-14-tage' },
   
   // 15. Duisburg
   { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
@@ -53,12 +47,6 @@ const OBITUARY_SOURCES = [
   
   // 17. Wuppertal
   { id: 'wuppertal', name: 'Wuppertaler Rundschau', url: 'https://trauer.wuppertaler-rundschau.de/traueranzeigen-suche/letzte-14-tage' },
-  
-  // 18. Bielefeld
-  { id: 'bielefeld', name: 'Neue Westfälische', url: 'https://trauer.nw.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  
-  // 19. Bonn
-  { id: 'bonn', name: 'General-Anzeiger Bonn', url: 'https://trauer.ga.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
   // 20. Münster
   { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
