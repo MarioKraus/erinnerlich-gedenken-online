@@ -19,41 +19,27 @@ const NEWSPAPER_SOURCES = [
   { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
   
   // Major cities
-  { id: 'tagesspiegel', name: 'Tagesspiegel', url: 'https://trauer.tagesspiegel.de/' },
   { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
-  { id: 'merkur', name: 'Münchner Merkur', url: 'https://trauer.merkur.de/' },
   { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
   { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  { id: 'rp-online', name: 'Rheinische Post', url: 'https://trauer.rp-online.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
-  { id: 'weser-kurier', name: 'Weser Kurier', url: 'https://trauer.weser-kurier.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  { id: 'duisburg', name: 'Niederrhein Nachrichten', url: 'https://www.trauer.niederrhein-nachrichten.de/traueranzeigen-suche/duisburg' },
   { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  { id: 'wuppertal', name: 'Wuppertaler Rundschau', url: 'https://trauer.wuppertaler-rundschau.de/traueranzeigen-suche/letzte-14-tage' },
   { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
-  { id: 'karlsruhe', name: 'BNN Karlsruhe', url: 'https://trauer.bnn.de/' },
   { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
   
   // Regional sources
-  { id: 'hz', name: 'Heidenheimer Zeitung', url: 'https://trauer.hz.de/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
-  { id: 'mainpost', name: 'Mainpost', url: 'https://trauer.mainpost.de/' },
   
-  // New sources
+  // Other sources
   { id: 'vrm-trauer', name: 'VRM Trauer', url: 'https://vrm-trauer.de/' },
   { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
-  { id: 'hna', name: 'HNA', url: 'https://trauer.hna.de/' },
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
   { id: 'wn', name: 'Westfalen Nachrichten', url: 'https://wn-trauer.de/' },
   { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
-  { id: 'hersfelder', name: 'Hersfelder Zeitung', url: 'https://trauer.hersfelder-zeitung.de/' },
-  { id: 'kreiszeitung', name: 'Kreiszeitung', url: 'https://trauer.kreiszeitung.de/' },
-  { id: 'wlz', name: 'WLZ', url: 'https://trauer.wlz.de/' },
-  { id: 'fnweb', name: 'Fränkische Nachrichten', url: 'https://trauer.fnweb.de/' },
   { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
   { id: 'trauerfall', name: 'Trauerfall.de', url: 'https://trauerfall.de/' },
   
