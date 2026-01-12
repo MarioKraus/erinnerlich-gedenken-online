@@ -259,25 +259,46 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     /([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*\n?\s*\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
     // NN.de format with newlines between name and dates
     /\[([A-ZÄÖÜ][^\]]+)\]\([^)]+\)\s*\n+\s*\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
+    // Trauer.de format: [**Name**](url) followed by dates on next line
+    // Also handles [**Name** **geb. Maidenname**](url) format
+    /\[\*\*([A-ZÄÖÜ][^\*\]]+)\*\*(?:\s+\*\*geb\.\s+[^\*]+\*\*)?\]\([^)]+\)\s*\n+\s*\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s*[-–]\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
+    // Trauer.de format without birth date: [**Name**](url) followed by "- † date"
+    /\[\*\*([A-ZÄÖÜ][^\*\]]+)\*\*(?:\s+\*\*geb\.\s+[^\*]+\*\*)?\]\([^)]+\)\s*\n+\s*-\s*†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi,
   ];
   for (const pattern of nameWithDatesPatterns) {
     pattern.lastIndex = 0;
     while ((match = pattern.exec(markdown)) !== null) {
       let name = match[1].trim();
-      // Clean any "Anzeige " prefix
-      name = name.replace(/^Anzeige\s+/i, '');
+      // Clean any "Anzeige " prefix and bold markers
+      name = name.replace(/^Anzeige\s+/i, '').replace(/\*\*/g, '').trim();
       if (isValidName(name)) {
-        const [, , birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
-        seenNames.add(name.toLowerCase());
-        obituaries.push({
-          name,
-          birth_date: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
-          death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
-          location: extractLocationFromSource(source),
-          text: null,
-          source,
-          photo_url: photoUrlMap.get(name.toLowerCase()) || null
-        });
+        // Check if this is a pattern with birth date (7+ groups) or just death date (4 groups)
+        if (match.length >= 8) {
+          const [, , birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
+          seenNames.add(name.toLowerCase());
+          obituaries.push({
+            name,
+            birth_date: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
+            death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
+            location: extractLocationFromSource(source),
+            text: null,
+            source,
+            photo_url: photoUrlMap.get(name.toLowerCase()) || null
+          });
+        } else if (match.length >= 5) {
+          // Death date only pattern
+          const [, , deathDay, deathMonth, deathYear] = match;
+          seenNames.add(name.toLowerCase());
+          obituaries.push({
+            name,
+            birth_date: null,
+            death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
+            location: extractLocationFromSource(source),
+            text: null,
+            source,
+            photo_url: photoUrlMap.get(name.toLowerCase()) || null
+          });
+        }
       }
     }
   }
@@ -302,17 +323,26 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   }
 
   // Pattern 5: Links to obituary pages like [Name](https://.../traueranzeige/slug)
-  const obituaryLinkPattern = /\[([A-ZÄÖÜ][^\]]+)\]\([^)]*\/traueranzeige\/[^)]+\)/gi;
+  // Also handles bold names like [**Name**](url)
+  const obituaryLinkPattern = /\[(\*{0,2})([A-ZÄÖÜ][^\]]+?)\1\]\([^)]*\/traueranzeige\/[^)]+\)/gi;
   while ((match = obituaryLinkPattern.exec(markdown)) !== null) {
-    let name = match[1].trim();
-    // Clean up prefixes like "Anzeige "
-    name = name.replace(/^Anzeige\s+/i, '');
+    let name = match[2].trim();
+    // Clean up prefixes like "Anzeige " and any remaining bold markers
+    name = name.replace(/^Anzeige\s+/i, '').replace(/\*\*/g, '').trim();
+    // Also clean "geb. Name" suffix for married names
+    name = name.replace(/\s+geb\.\s+.+$/i, '').trim();
     if (isValidName(name)) {
+      // Look for dates in surrounding context
+      const matchIndex = match.index;
+      const followingText = markdown.substring(matchIndex, matchIndex + 200);
+      const deathDate = extractDeathDate(followingText) || today;
+      const birthDate = extractBirthDate(followingText);
+      
       seenNames.add(name.toLowerCase());
       obituaries.push({
         name,
-        birth_date: null,
-        death_date: today,
+        birth_date: birthDate,
+        death_date: deathDate,
         location: extractLocationFromSource(source),
         text: null,
         source,
