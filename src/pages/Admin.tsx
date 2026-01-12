@@ -464,15 +464,24 @@ const Admin = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Badge variant="secondary" className={scraperSettings?.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+                <Badge 
+                  variant="secondary" 
+                  className={scraperSettings?.is_active ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"}
+                >
                   {scraperSettings?.is_active ? "Aktiv" : "Inaktiv"}
                 </Badge>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {getCronLabel(scraperSettings?.cron_interval || '0 * * * *')}
+                <p className="text-sm font-medium mt-2">
+                  {getCronLabel(scraperSettings?.cron_interval || '')}
                 </p>
                 {scraperSettings?.last_run_at && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    <Clock className="h-3 w-3" />
                     Letzter Lauf: {new Date(scraperSettings.last_run_at).toLocaleString("de-DE")}
+                  </p>
+                )}
+                {!scraperSettings?.last_run_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Noch kein Lauf aufgezeichnet
                   </p>
                 )}
               </div>
@@ -480,15 +489,16 @@ const Admin = () => {
               <div className="space-y-2">
                 <label className="text-xs font-medium">Intervall ändern:</label>
                 <Select
-                  value={scraperSettings?.cron_interval || '0 * * * *'}
+                  value={scraperSettings?.cron_interval || '33 13 * * *'}
                   onValueChange={(value) => updateCronMutation.mutate(value)}
+                  disabled={updateCronMutation.isPending}
                 >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue />
+                  <SelectTrigger className="h-9 text-sm bg-background">
+                    <SelectValue placeholder="Intervall wählen..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-popover z-50">
                     {CRON_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
+                      <SelectItem key={option.value} value={option.value} className="text-sm">
                         {option.label}
                       </SelectItem>
                     ))}
