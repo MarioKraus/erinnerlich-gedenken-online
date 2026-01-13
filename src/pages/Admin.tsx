@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause } from "lucide-react";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -65,6 +65,12 @@ interface SourceStats {
   lastImportAt: string | null;
 }
 
+interface ScrapeRun {
+  source: string;
+  scrape_time: string;
+  count: number;
+}
+
 const Admin = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -73,6 +79,7 @@ const Admin = () => {
   const [scrapingSources, setScrapingSources] = useState<Set<string>>(new Set());
   const [totalExpanded, setTotalExpanded] = useState(false);
   const [todayExpanded, setTodayExpanded] = useState(false);
+  const [scrapeHistoryExpanded, setScrapeHistoryExpanded] = useState(true);
 
   // Fetch source statistics
   const { data: sourceStats } = useQuery({
@@ -118,6 +125,105 @@ const Admin = () => {
       }));
 
       return stats;
+    },
+  });
+
+  // Fetch scrape history - last runs per source
+  const { data: scrapeHistory } = useQuery({
+    queryKey: ["scrape-history"],
+    queryFn: async () => {
+      // Get scrape runs grouped by source and minute
+      const { data: runs } = await supabase
+        .from("obituaries")
+        .select("source, created_at")
+        .not("source", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (!runs) return { bySource: {}, overall: [] };
+
+      // Group by source and minute to identify distinct scrape runs
+      const runsBySourceAndTime: Record<string, Record<string, number>> = {};
+      runs.forEach((item) => {
+        const src = item.source || "Unbekannt";
+        const time = new Date(item.created_at);
+        // Round to minute for grouping
+        const minuteKey = new Date(time.getFullYear(), time.getMonth(), time.getDate(), time.getHours(), time.getMinutes()).toISOString();
+        
+        if (!runsBySourceAndTime[src]) runsBySourceAndTime[src] = {};
+        runsBySourceAndTime[src][minuteKey] = (runsBySourceAndTime[src][minuteKey] || 0) + 1;
+      });
+
+      // Convert to array format and get last 3 per source
+      const bySource: Record<string, ScrapeRun[]> = {};
+      Object.entries(runsBySourceAndTime).forEach(([source, times]) => {
+        const sortedRuns = Object.entries(times)
+          .map(([time, count]) => ({ source, scrape_time: time, count }))
+          .sort((a, b) => new Date(b.scrape_time).getTime() - new Date(a.scrape_time).getTime())
+          .slice(0, 3);
+        bySource[source] = sortedRuns;
+      });
+
+      // Get overall scrape runs (all sources combined by time)
+      const allRunsByTime: Record<string, { count: number; sources: Set<string> }> = {};
+      runs.forEach((item) => {
+        const src = item.source || "Unbekannt";
+        const time = new Date(item.created_at);
+        const minuteKey = new Date(time.getFullYear(), time.getMonth(), time.getDate(), time.getHours(), time.getMinutes()).toISOString();
+        
+        if (!allRunsByTime[minuteKey]) {
+          allRunsByTime[minuteKey] = { count: 0, sources: new Set() };
+        }
+        allRunsByTime[minuteKey].count++;
+        allRunsByTime[minuteKey].sources.add(src);
+      });
+
+      // Find distinct cron runs (within 5 minutes of each other = same run)
+      const sortedTimes = Object.keys(allRunsByTime).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      const cronRuns: { start_time: string; end_time: string; total_count: number; sources: string[] }[] = [];
+      
+      let currentRun: { start_time: string; end_time: string; total_count: number; sources: Set<string> } | null = null;
+      
+      sortedTimes.forEach((time) => {
+        const timeMs = new Date(time).getTime();
+        
+        if (!currentRun) {
+          currentRun = {
+            start_time: time,
+            end_time: time,
+            total_count: allRunsByTime[time].count,
+            sources: new Set(allRunsByTime[time].sources)
+          };
+        } else {
+          const currentEndMs = new Date(currentRun.end_time).getTime();
+          // If within 15 minutes of the current run's end, it's part of the same cron run
+          if (currentEndMs - timeMs <= 15 * 60 * 1000) {
+            currentRun.end_time = time;
+            currentRun.total_count += allRunsByTime[time].count;
+            allRunsByTime[time].sources.forEach(s => currentRun!.sources.add(s));
+          } else {
+            // Start a new run
+            cronRuns.push({
+              ...currentRun,
+              sources: Array.from(currentRun.sources)
+            });
+            currentRun = {
+              start_time: time,
+              end_time: time,
+              total_count: allRunsByTime[time].count,
+              sources: new Set(allRunsByTime[time].sources)
+            };
+          }
+        }
+      });
+      
+      if (currentRun) {
+        cronRuns.push({
+          ...currentRun,
+          sources: Array.from(currentRun.sources)
+        });
+      }
+
+      return { bySource, overall: cronRuns.slice(0, 3) };
     },
   });
 
@@ -579,6 +685,97 @@ const Admin = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Scrape History */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="h-5 w-5" />
+              Scrape-Historie
+            </CardTitle>
+            <CardDescription>
+              Die letzten 3 Scrape-Läufe pro Quelle und für den gesamten Cron-Job.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Overall Cron Runs */}
+            <div>
+              <h3 className="text-sm font-semibold mb-3">Letzte Cron-Job-Läufe</h3>
+              {scrapeHistory?.overall && scrapeHistory.overall.length > 0 ? (
+                <div className="space-y-2">
+                  {scrapeHistory.overall.map((run, idx) => (
+                    <div key={idx} className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">
+                            {new Date(run.start_time).toLocaleString("de-DE", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                        <Badge variant="secondary">
+                          {run.total_count} Einträge
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {run.sources.length} Quellen: {run.sources.slice(0, 5).join(", ")}
+                        {run.sources.length > 5 && ` (+${run.sources.length - 5} weitere)`}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Keine Cron-Läufe gefunden.</p>
+              )}
+            </div>
+
+            {/* Per-Source History */}
+            <Collapsible open={scrapeHistoryExpanded} onOpenChange={setScrapeHistoryExpanded}>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm font-semibold hover:text-primary transition-colors">
+                {scrapeHistoryExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                Letzte Läufe pro Quelle
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {NEWSPAPER_SOURCES.map((source) => {
+                    const runs = scrapeHistory?.bySource[source.name];
+                    return (
+                      <div key={source.id} className="p-3 bg-muted/30 rounded-lg">
+                        <h4 className="text-sm font-medium mb-2">{source.name}</h4>
+                        {runs && runs.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {runs.map((run, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">
+                                  {new Date(run.scrape_time).toLocaleString("de-DE", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                  })}
+                                </span>
+                                <Badge variant="outline" className="text-xs py-0">
+                                  {run.count} Einträge
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-muted-foreground">Keine Läufe</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </CardContent>
+        </Card>
 
         {/* Manual Scraping - All Sources */}
         <Card className="mb-8">
