@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -202,6 +203,35 @@ const Admin = () => {
       toast({
         title: "Intervall aktualisiert",
         description: "Das Scraping-Intervall und der Cron-Job wurden erfolgreich geändert.",
+      });
+      refetchSettings();
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleCronMutation = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      const { data, error } = await supabase.functions.invoke("update-cron-schedule", {
+        body: { is_active: isActive },
+      });
+      
+      if (error) throw error;
+      if (data?.success === false) throw new Error(data?.error || "Failed to toggle cron");
+      
+      return data;
+    },
+    onSuccess: (_, isActive) => {
+      toast({
+        title: isActive ? "Cron-Job aktiviert" : "Cron-Job pausiert",
+        description: isActive 
+          ? "Der Scraping-Job läuft jetzt automatisch." 
+          : "Der Scraping-Job wurde pausiert und läuft nicht mehr automatisch.",
       });
       refetchSettings();
     },
@@ -463,14 +493,36 @@ const Admin = () => {
               <Settings className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={scraperSettings?.is_active ?? true}
+                    onCheckedChange={(checked) => toggleCronMutation.mutate(checked)}
+                    disabled={toggleCronMutation.isPending}
+                  />
+                  <div className="flex items-center gap-2">
+                    {toggleCronMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    ) : scraperSettings?.is_active ? (
+                      <Play className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <Pause className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    )}
+                    <span className="text-sm font-medium">
+                      {scraperSettings?.is_active ? "Aktiv" : "Pausiert"}
+                    </span>
+                  </div>
+                </div>
                 <Badge 
                   variant="secondary" 
-                  className={scraperSettings?.is_active ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"}
+                  className={scraperSettings?.is_active ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200"}
                 >
-                  {scraperSettings?.is_active ? "Aktiv" : "Inaktiv"}
+                  {scraperSettings?.is_active ? "Läuft" : "Pausiert"}
                 </Badge>
-                <p className="text-sm font-medium mt-2">
+              </div>
+              
+              <div className="pt-2 border-t">
+                <p className="text-sm font-medium">
                   {getCronLabel(scraperSettings?.cron_interval || '')}
                 </p>
                 {scraperSettings?.last_run_at && (
