@@ -622,6 +622,19 @@ Deno.serve(async (req) => {
       }
     }
 
+    // === UPDATE LAST RUN TIMESTAMP ===
+    console.log('Updating last_run_at timestamp...');
+    const { error: updateLastRunError } = await supabase
+      .from('scraper_settings')
+      .update({ last_run_at: new Date().toISOString() })
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+    
+    if (updateLastRunError) {
+      console.error('Error updating last_run_at:', updateLastRunError);
+    } else {
+      console.log('last_run_at updated successfully');
+    }
+
     // === POST-SCRAPING CLEANUP ===
     
     // 1. Remove duplicates (same name, birth_date, death_date - keep oldest)
