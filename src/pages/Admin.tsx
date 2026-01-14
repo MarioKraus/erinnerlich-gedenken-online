@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History } from "lucide-react";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -58,6 +58,34 @@ const CRON_OPTIONS = [
   { value: '0 */12 * * *', label: 'Alle 12 Stunden' },
 ];
 
+// Helper to describe cron schedule in German
+const describeCronSchedule = (cron: string): string => {
+  const predefined = CRON_OPTIONS.find(o => o.value === cron);
+  if (predefined) return predefined.label;
+  
+  const parts = cron.split(' ');
+  if (parts.length !== 5) return cron;
+  
+  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts;
+  
+  if (hour === '*' && minute.startsWith('*/')) {
+    return `Alle ${minute.slice(2)} Minuten`;
+  }
+  if (minute === '0' && hour === '*') {
+    return 'Jede volle Stunde';
+  }
+  if (minute === '0' && hour.startsWith('*/')) {
+    return `Alle ${hour.slice(2)} Stunden`;
+  }
+  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*') {
+    if (hour !== '*' && minute !== '*') {
+      return `Täglich um ${hour.padStart(2, '0')}:${minute.padStart(2, '0')} Uhr`;
+    }
+  }
+  
+  return cron;
+};
+
 interface SourceStats {
   source: string;
   count: number;
@@ -71,6 +99,16 @@ interface ScrapeRun {
   count: number;
 }
 
+interface CronJob {
+  id: number;
+  name: string;
+  schedule: string;
+  active: boolean;
+  target_function: string;
+  target_sources: string[];
+  raw_command: string;
+}
+
 const Admin = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -80,6 +118,7 @@ const Admin = () => {
   const [totalExpanded, setTotalExpanded] = useState(false);
   const [todayExpanded, setTodayExpanded] = useState(false);
   const [scrapeHistoryExpanded, setScrapeHistoryExpanded] = useState(true);
+  const [cronJobsExpanded, setCronJobsExpanded] = useState(true);
 
   // Fetch source statistics
   const { data: sourceStats } = useQuery({
@@ -224,6 +263,45 @@ const Admin = () => {
       }
 
       return { bySource, overall: cronRuns.slice(0, 3) };
+    },
+  });
+
+  // Fetch all pg_cron jobs
+  const { data: cronJobs, refetch: refetchCronJobs } = useQuery<CronJob[]>({
+    queryKey: ["cron-jobs"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("get-cron-jobs");
+      
+      if (error) {
+        console.error("Error fetching cron jobs:", error);
+        return [];
+      }
+      
+      return data?.jobs || [];
+    },
+  });
+
+  const deleteCronJobMutation = useMutation({
+    mutationFn: async (jobName: string) => {
+      const { data, error } = await supabase.rpc('unschedule_scrape_job' as any);
+      if (error && !error.message.includes('does not exist')) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Cron-Job gelöscht",
+        description: "Der Cron-Job wurde erfolgreich entfernt.",
+      });
+      refetchCronJobs();
+    },
+    onError: (error) => {
+      toast({
+        title: "Fehler",
+        description: error instanceof Error ? error.message : "Unbekannter Fehler",
+        variant: "destructive",
+      });
     },
   });
 
@@ -774,6 +852,120 @@ const Admin = () => {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+          </CardContent>
+        </Card>
+
+        {/* All pg_cron Jobs Overview */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Timer className="h-5 w-5" />
+              Alle pg_cron Jobs
+            </CardTitle>
+            <CardDescription>
+              Übersicht aller aktiven und inaktiven Cron-Jobs in der Datenbank.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between mb-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => refetchCronJobs()}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Aktualisieren
+              </Button>
+              {cronJobs && cronJobs.length > 0 && (
+                <Badge variant="secondary">
+                  {cronJobs.filter(j => j.active).length} aktiv / {cronJobs.length} gesamt
+                </Badge>
+              )}
+            </div>
+            
+            {cronJobs && cronJobs.length > 0 ? (
+              <div className="space-y-3">
+                {cronJobs.map((job) => (
+                  <div 
+                    key={job.id} 
+                    className={`p-4 rounded-lg border ${
+                      job.active 
+                        ? 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800' 
+                        : 'bg-muted/50 border-muted'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-medium text-sm">{job.name}</h4>
+                          <Badge 
+                            variant={job.active ? "default" : "secondary"}
+                            className={job.active ? "bg-green-600" : ""}
+                          >
+                            {job.active ? "Aktiv" : "Inaktiv"}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3 w-3" />
+                            <span className="font-mono">{job.schedule}</span>
+                            <span className="text-muted-foreground/70">
+                              ({describeCronSchedule(job.schedule)})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Play className="h-3 w-3" />
+                            <span>Funktion: <span className="font-medium text-foreground">{job.target_function}</span></span>
+                          </div>
+                          {job.target_sources.length > 0 && (
+                            <div className="flex items-start gap-2">
+                              <Database className="h-3 w-3 mt-0.5" />
+                              <span>
+                                Quellen: {job.target_sources.slice(0, 5).join(", ")}
+                                {job.target_sources.length > 5 && ` (+${job.target_sources.length - 5} weitere)`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {job.name !== 'daily-obituary-scrape' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => {
+                            if (confirm(`Möchten Sie den Cron-Job "${job.name}" wirklich löschen?`)) {
+                              toast({
+                                title: "Hinweis",
+                                description: "Zum Löschen führen Sie bitte folgenden SQL-Befehl aus: SELECT cron.unschedule('" + job.name + "');",
+                              });
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <Collapsible>
+                      <CollapsibleTrigger className="mt-2 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                        <ChevronDown className="h-3 w-3" />
+                        SQL-Befehl anzeigen
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2">
+                        <pre className="text-xs bg-muted p-2 rounded overflow-x-auto whitespace-pre-wrap break-all">
+                          {job.raw_command}
+                        </pre>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Timer className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Keine Cron-Jobs gefunden.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
