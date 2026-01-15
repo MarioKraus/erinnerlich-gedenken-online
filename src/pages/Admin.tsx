@@ -39,7 +39,7 @@ const NEWSPAPER_SOURCES = [
   { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
-  { id: 'wn', name: 'Westfalen Nachrichten', url: 'https://wn-trauer.de/' },
+  { id: 'wn', name: 'Westfälische Nachrichten', url: 'https://wn-trauer.de/' },
   { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
   { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
   { id: 'trauerfall', name: 'Trauerfall.de', url: 'https://trauerfall.de/' },
@@ -124,28 +124,59 @@ const Admin = () => {
   const { data: sourceStats } = useQuery({
     queryKey: ["source-stats"],
     queryFn: async () => {
-      // Get counts by source
-      const { data: counts } = await supabase
-        .from("obituaries")
-        .select("source")
-        .order("source");
+      // Get counts by source using pagination to bypass 1000 row limit
+      let allCounts: { source: string | null }[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: counts } = await supabase
+          .from("obituaries")
+          .select("source")
+          .order("source")
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (counts && counts.length > 0) {
+          allCounts = [...allCounts, ...counts];
+          hasMore = counts.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
       
       const countMap: Record<string, number> = {};
-      counts?.forEach((item) => {
+      allCounts.forEach((item) => {
         const src = item.source || "Unbekannt";
         countMap[src] = (countMap[src] || 0) + 1;
       });
 
-      // Get last import info (last 48 hours grouped by source)
+      // Get last import info (last 48 hours grouped by source) - also with pagination
       const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const { data: recentBySource } = await supabase
-        .from("obituaries")
-        .select("source, created_at")
-        .gte("created_at", fortyEightHoursAgo)
-        .order("created_at", { ascending: false });
+      let allRecent: { source: string | null; created_at: string }[] = [];
+      page = 0;
+      hasMore = true;
+      
+      while (hasMore) {
+        const { data: recentBySource } = await supabase
+          .from("obituaries")
+          .select("source, created_at")
+          .gte("created_at", fortyEightHoursAgo)
+          .order("created_at", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (recentBySource && recentBySource.length > 0) {
+          allRecent = [...allRecent, ...recentBySource];
+          hasMore = recentBySource.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
 
       const lastImportMap: Record<string, { count: number; lastAt: string | null }> = {};
-      recentBySource?.forEach((item) => {
+      allRecent.forEach((item) => {
         const src = item.source || "Unbekannt";
         if (!lastImportMap[src]) {
           lastImportMap[src] = { count: 0, lastAt: null };
@@ -156,11 +187,37 @@ const Admin = () => {
         }
       });
 
+      // Also get the last import time for each source (even if outside 48h window)
+      const lastImportBySourceAll: Record<string, string> = {};
+      let sourcePage = 0;
+      let sourceHasMore = true;
+      
+      while (sourceHasMore) {
+        const { data: lastImports } = await supabase
+          .from("obituaries")
+          .select("source, created_at")
+          .order("created_at", { ascending: false })
+          .range(sourcePage * pageSize, (sourcePage + 1) * pageSize - 1);
+        
+        if (lastImports && lastImports.length > 0) {
+          lastImports.forEach((item) => {
+            const src = item.source || "Unbekannt";
+            if (!lastImportBySourceAll[src] || item.created_at > lastImportBySourceAll[src]) {
+              lastImportBySourceAll[src] = item.created_at;
+            }
+          });
+          sourceHasMore = lastImports.length === pageSize;
+          sourcePage++;
+        } else {
+          sourceHasMore = false;
+        }
+      }
+
       const stats: SourceStats[] = NEWSPAPER_SOURCES.map((source) => ({
         source: source.name,
         count: countMap[source.name] || 0,
         lastImportCount: lastImportMap[source.name]?.count || 0,
-        lastImportAt: lastImportMap[source.name]?.lastAt || null,
+        lastImportAt: lastImportMap[source.name]?.lastAt || lastImportBySourceAll[source.name] || null,
       }));
 
       return stats;
@@ -171,18 +228,34 @@ const Admin = () => {
   const { data: scrapeHistory } = useQuery({
     queryKey: ["scrape-history"],
     queryFn: async () => {
-      // Get scrape runs grouped by source and minute
-      const { data: runs } = await supabase
-        .from("obituaries")
-        .select("source, created_at")
-        .not("source", "is", null)
-        .order("created_at", { ascending: false });
+      // Get scrape runs grouped by source and minute - with pagination
+      let allRuns: { source: string | null; created_at: string }[] = [];
+      let page = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const { data: runs } = await supabase
+          .from("obituaries")
+          .select("source, created_at")
+          .not("source", "is", null)
+          .order("created_at", { ascending: false })
+          .range(page * pageSize, (page + 1) * pageSize - 1);
+        
+        if (runs && runs.length > 0) {
+          allRuns = [...allRuns, ...runs];
+          hasMore = runs.length === pageSize;
+          page++;
+        } else {
+          hasMore = false;
+        }
+      }
 
-      if (!runs) return { bySource: {}, overall: [] };
+      if (allRuns.length === 0) return { bySource: {}, overall: [] };
 
       // Group by source and minute to identify distinct scrape runs
       const runsBySourceAndTime: Record<string, Record<string, number>> = {};
-      runs.forEach((item) => {
+      allRuns.forEach((item) => {
         const src = item.source || "Unbekannt";
         const time = new Date(item.created_at);
         // Round to minute for grouping
@@ -204,7 +277,7 @@ const Admin = () => {
 
       // Get overall scrape runs (all sources combined by time)
       const allRunsByTime: Record<string, { count: number; sources: Set<string> }> = {};
-      runs.forEach((item) => {
+      allRuns.forEach((item) => {
         const src = item.source || "Unbekannt";
         const time = new Date(item.created_at);
         const minuteKey = new Date(time.getFullYear(), time.getMonth(), time.getDate(), time.getHours(), time.getMinutes()).toISOString();

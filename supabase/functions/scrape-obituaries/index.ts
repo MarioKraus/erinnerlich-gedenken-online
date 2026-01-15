@@ -47,7 +47,7 @@ const OBITUARY_SOURCES = [
   { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
-  { id: 'wn', name: 'Westfalen Nachrichten', url: 'https://wn-trauer.de/' },
+  { id: 'wn', name: 'Westfälische Nachrichten', url: 'https://wn-trauer.de/' },
   { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
   { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
   { id: 'trauerfall', name: 'Trauerfall.de', url: 'https://trauerfall.de/' },
