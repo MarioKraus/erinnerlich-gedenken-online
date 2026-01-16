@@ -20,7 +20,7 @@ const OBITUARY_SOURCES = [
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
   { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
+  { id: 'nordkurier', name: 'Nordkurier', url: 'https://trauer.nordkurier.de' },
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
   { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
@@ -152,8 +152,8 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   const cleanSourceFromName = (name: string): string => {
     // Remove common source attribution patterns like "von Süddeutsche Zeitung", "von OFOP", etc.
     const sourcePatterns = [
-      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|GmbH).*$/i,
-      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung).*$/i,
+      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|Trierischer Volksfreund|Trierischer|trierischer|GmbH).*$/i,
+      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung|Volksfreund).*$/i,
       /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*GmbH.*$/i,
     ];
     
