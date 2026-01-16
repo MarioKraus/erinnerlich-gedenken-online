@@ -28,7 +28,7 @@ const NEWSPAPER_SOURCES = [
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
   { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
-  { id: 'svz', name: 'SVZ', url: 'https://svz.de/traueranzeigen/' },
+  { id: 'nordkurier', name: 'Nordkurier', url: 'https://trauer.nordkurier.de' },
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
   { id: 'nrw', name: 'Trauer NRW', url: 'https://trauer-in-nrw.de/traueranzeigen-suche/aktuelle-ausgabe' },
