@@ -541,13 +541,11 @@ Deno.serve(async (req) => {
         results.bySource[source.name] = { parsed: obituaries.length, inserted: 0 };
 
         for (const obituary of obituaries) {
-          // Check if already exists (by name and death_date, optionally birth_date)
-          // Use a query that matches the duplicate detection logic
+          // Check if already exists (by name and birth_date only - not death_date)
           let query = supabase
             .from('obituaries')
             .select('id, photo_url')
-            .eq('name', obituary.name)
-            .eq('death_date', obituary.death_date);
+            .eq('name', obituary.name);
           
           // Match birth_date: both null OR both equal
           if (obituary.birth_date) {
