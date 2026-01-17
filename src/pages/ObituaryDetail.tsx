@@ -187,10 +187,26 @@ const ObituaryDetail = () => {
     const birth = obituary.birth_date ? formatDate(obituary.birth_date) : null;
     const death = formatDate(obituary.death_date);
     
-    if (birth && death) {
+    // Check if death_date equals publication_date or created_at date - this means no confirmed death date was found
+    // In this case, only show birth date (if available) without showing the incorrect death date
+    const publicationDate = obituary.publication_date 
+      ? formatDate(obituary.publication_date) 
+      : formatDate(obituary.created_at.split('T')[0]); // Use created_at date part as fallback
+    const createdAtDate = formatDate(obituary.created_at.split('T')[0]);
+    
+    // Death date is confirmed if it doesn't match publication_date or created_at
+    const deathDateIsConfirmed = death !== publicationDate && death !== createdAtDate;
+    
+    if (birth && death && deathDateIsConfirmed) {
       return `* ${birth} – † ${death}`;
     }
-    return `† ${death}`;
+    if (birth && !deathDateIsConfirmed) {
+      return `* ${birth}`;
+    }
+    if (death && deathDateIsConfirmed) {
+      return `† ${death}`;
+    }
+    return null;
   };
 
   const sourceUrl = getSourceUrl(obituary.source);
@@ -285,9 +301,11 @@ const ObituaryDetail = () => {
                   {obituary.name}
                 </h1>
 
-                <p className="font-serif text-lg text-muted-foreground">
-                  {getLifeSpan()}
-                </p>
+                {getLifeSpan() && (
+                  <p className="font-serif text-lg text-muted-foreground">
+                    {getLifeSpan()}
+                  </p>
+                )}
               </div>
 
               {/* Divider */}
