@@ -34,7 +34,9 @@ const OBITUARY_SOURCES = [
 interface ScrapedObituary {
   name: string;
   birth_date: string | null;
-  death_date: string;
+  death_date: string | null;
+  death_date_confirmed: boolean; // true if we found an actual death date, false if using publication date as fallback
+  publication_date: string;
   location: string | null;
   text: string | null;
   source: string;
@@ -189,11 +191,19 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   while ((match = traueranzeigenPattern.exec(markdown)) !== null) {
     let name = cleanSourceFromName(match[1].trim());
     if (isValidName(name)) {
+      // Look for dates in surrounding context
+      const matchIndex = match.index;
+      const followingText = markdown.substring(matchIndex, matchIndex + 300);
+      const deathDate = extractDeathDate(followingText);
+      const birthDate = extractBirthDate(followingText);
+      
       seenNames.add(name.toLowerCase());
       obituaries.push({
         name,
-        birth_date: null,
-        death_date: today,
+        birth_date: birthDate,
+        death_date: deathDate, // null if not found - will use publication_date as fallback for DB
+        death_date_confirmed: deathDate !== null,
+        publication_date: today,
         location: extractLocationFromSource(source),
         text: null,
         source,
@@ -213,7 +223,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     if (isValidName(name)) {
       // Look for dates after this match (increased range for nn.de format)
       const followingText = markdown.substring(match.index, match.index + 400);
-      const deathDate = extractDeathDate(followingText) || today;
+      const deathDate = extractDeathDate(followingText);
       const birthDate = extractBirthDate(followingText);
       
       seenNames.add(name.toLowerCase());
@@ -221,6 +231,8 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         name,
         birth_date: birthDate,
         death_date: deathDate,
+        death_date_confirmed: deathDate !== null,
+        publication_date: today,
         location: extractLocationFromSource(source),
         text: null,
         source,
@@ -252,11 +264,14 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         // Check if this is a pattern with birth date (7+ groups) or just death date (4 groups)
         if (match.length >= 8) {
           const [, , birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
+          const deathDate = `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`;
           seenNames.add(name.toLowerCase());
           obituaries.push({
             name,
             birth_date: `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`,
-            death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
+            death_date: deathDate,
+            death_date_confirmed: true,
+            publication_date: today,
             location: extractLocationFromSource(source),
             text: null,
             source,
@@ -265,11 +280,14 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         } else if (match.length >= 5) {
           // Death date only pattern
           const [, , deathDay, deathMonth, deathYear] = match;
+          const deathDate = `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`;
           seenNames.add(name.toLowerCase());
           obituaries.push({
             name,
             birth_date: null,
-            death_date: `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`,
+            death_date: deathDate,
+            death_date_confirmed: true,
+            publication_date: today,
             location: extractLocationFromSource(source),
             text: null,
             source,
@@ -286,11 +304,19 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   while ((match = imgAltPattern.exec(markdown)) !== null) {
     const name = match[1].trim();
     if (isValidName(name)) {
+      // Look for dates in surrounding context
+      const matchIndex = match.index;
+      const followingText = markdown.substring(matchIndex, matchIndex + 300);
+      const deathDate = extractDeathDate(followingText);
+      const birthDate = extractBirthDate(followingText);
+      
       seenNames.add(name.toLowerCase());
       obituaries.push({
         name,
-        birth_date: null,
-        death_date: today,
+        birth_date: birthDate,
+        death_date: deathDate,
+        death_date_confirmed: deathDate !== null,
+        publication_date: today,
         location: extractLocationFromSource(source),
         text: null,
         source,
@@ -312,7 +338,7 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
       // Look for dates in surrounding context
       const matchIndex = match.index;
       const followingText = markdown.substring(matchIndex, matchIndex + 200);
-      const deathDate = extractDeathDate(followingText) || today;
+      const deathDate = extractDeathDate(followingText);
       const birthDate = extractBirthDate(followingText);
       
       seenNames.add(name.toLowerCase());
@@ -320,6 +346,8 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
         name,
         birth_date: birthDate,
         death_date: deathDate,
+        death_date_confirmed: deathDate !== null,
+        publication_date: today,
         location: extractLocationFromSource(source),
         text: null,
         source,
@@ -557,9 +585,22 @@ Deno.serve(async (req) => {
           const { data: existing } = await query.maybeSingle();
 
           if (!existing) {
+            // Prepare insert data: use death_date only if confirmed, otherwise use publication_date as fallback
+            // The DB requires death_date to be NOT NULL, so we use publication_date as fallback
+            const insertData = {
+              name: obituary.name,
+              birth_date: obituary.birth_date,
+              death_date: obituary.death_date_confirmed ? obituary.death_date : obituary.publication_date,
+              publication_date: obituary.publication_date,
+              location: obituary.location,
+              text: obituary.text,
+              source: obituary.source,
+              photo_url: obituary.photo_url,
+            };
+            
             const { error: insertError } = await supabase
               .from('obituaries')
-              .insert(obituary);
+              .insert(insertData);
 
             if (insertError) {
               console.error('Insert error:', insertError);
