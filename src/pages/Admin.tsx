@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2 } from "lucide-react";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -37,6 +37,38 @@ const NEWSPAPER_SOURCES = [
   { id: 'volksfreund', name: 'Trierischer Volksfreund', url: 'https://volksfreund.trauer.de/' },
   { id: 'vrm-trauer', name: 'VRM Trauer', url: 'https://vrm-trauer.de/' },
   { id: 'muenster', name: 'Westfälische Nachrichten', url: 'https://www.trauer.ms/traueranzeigen-suche/aktuelle-ausgabe' },
+];
+
+// Historical scraping: sources that support month-based archives
+const HISTORICAL_SOURCES = [
+  { id: 'augsburg', name: 'Augsburger Allgemeine' },
+  { id: 'die-glocke', name: 'Die Glocke' },
+  { id: 'faz', name: 'Frankfurter Allgemeine' },
+  { id: 'rheinmain', name: 'Frankfurter Rundschau' },
+  { id: 'stuttgart', name: 'Stuttgarter Zeitung' },
+  { id: 'nrw', name: 'Trauer NRW' },
+  { id: 'muenster', name: 'Westfälische Nachrichten' },
+  { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger' },
+  { id: 'mannheim', name: 'Mannheimer Morgen' },
+  { id: 'hamburger-trauer', name: 'Hamburger Abendblatt' },
+  { id: 'trauerundgedenken', name: 'Trauer und Gedenken' },
+  { id: 'dortmund', name: 'Ruhr Nachrichten' },
+];
+
+// Months for 2025
+const MONTHS_2025 = [
+  { value: 'januar-2025', label: 'Januar 2025' },
+  { value: 'februar-2025', label: 'Februar 2025' },
+  { value: 'maerz-2025', label: 'März 2025' },
+  { value: 'april-2025', label: 'April 2025' },
+  { value: 'mai-2025', label: 'Mai 2025' },
+  { value: 'juni-2025', label: 'Juni 2025' },
+  { value: 'juli-2025', label: 'Juli 2025' },
+  { value: 'august-2025', label: 'August 2025' },
+  { value: 'september-2025', label: 'September 2025' },
+  { value: 'oktober-2025', label: 'Oktober 2025' },
+  { value: 'november-2025', label: 'November 2025' },
+  { value: 'dezember-2025', label: 'Dezember 2025' },
 ];
 
 const CRON_OPTIONS = [
@@ -109,6 +141,12 @@ const Admin = () => {
   const [todayExpanded, setTodayExpanded] = useState(false);
   const [scrapeHistoryExpanded, setScrapeHistoryExpanded] = useState(true);
   const [cronJobsExpanded, setCronJobsExpanded] = useState(true);
+  
+  // Historical scraping state
+  const [historicalSource, setHistoricalSource] = useState<string>("");
+  const [historicalMonth, setHistoricalMonth] = useState<string>("");
+  const [isScrapingHistorical, setIsScrapingHistorical] = useState(false);
+  const [historicalResult, setHistoricalResult] = useState<{ month: string; source: string; parsed: number; inserted: number } | null>(null);
 
   // Fetch source statistics
   const { data: sourceStats } = useQuery({
@@ -601,6 +639,36 @@ const Admin = () => {
       });
     } finally {
       setScrapingSource(null);
+    }
+  };
+
+  const handleScrapeHistorical = async () => {
+    if (!historicalSource || !historicalMonth) {
+      toast({ title: "Bitte Quelle und Monat auswählen", variant: "destructive" });
+      return;
+    }
+    setIsScrapingHistorical(true);
+    setHistoricalResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-obituaries", {
+        body: { historical: { sources: [historicalSource], months: [historicalMonth] } },
+      });
+      if (error) throw error;
+      const sourceName = HISTORICAL_SOURCES.find(s => s.id === historicalSource)?.name || historicalSource;
+      const monthLabel = MONTHS_2025.find(m => m.value === historicalMonth)?.label || historicalMonth;
+      setHistoricalResult({
+        month: monthLabel,
+        source: sourceName,
+        parsed: data?.details?.bySource?.[`${sourceName} (${historicalMonth})`]?.parsed || 0,
+        inserted: data?.details?.inserted || 0,
+      });
+      toast({ title: "Historisches Scraping abgeschlossen", description: `${data?.details?.inserted || 0} neue Einträge importiert.` });
+      refetchStats();
+      queryClient.invalidateQueries({ queryKey: ["source-stats"] });
+    } catch (error) {
+      toast({ title: "Fehler", description: error instanceof Error ? error.message : "Unbekannter Fehler", variant: "destructive" });
+    } finally {
+      setIsScrapingHistorical(false);
     }
   };
 
@@ -1132,6 +1200,57 @@ const Admin = () => {
                 );
               })}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Historical Scraping */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Historisches Scraping (2025)
+            </CardTitle>
+            <CardDescription>
+              Importieren Sie Traueranzeigen aus vergangenen Monaten.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Quelle</label>
+                <Select value={historicalSource} onValueChange={setHistoricalSource}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Quelle wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HISTORICAL_SOURCES.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Monat</label>
+                <Select value={historicalMonth} onValueChange={setHistoricalMonth}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Monat wählen..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MONTHS_2025.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleScrapeHistorical} disabled={isScrapingHistorical || !historicalSource || !historicalMonth}>
+                {isScrapingHistorical ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Läuft...</> : <><Play className="mr-2 h-4 w-4" />Scrapen</>}
+              </Button>
+            </div>
+            {historicalResult && (
+              <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
+                <strong>{historicalResult.source}</strong> ({historicalResult.month}): {historicalResult.parsed} gefunden, <span className="text-green-600 font-medium">{historicalResult.inserted} neu importiert</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

@@ -471,17 +471,53 @@ Deno.serve(async (req) => {
       // Empty body is fine
     }
 
-    const { sourceUrl, sourceName, sources } = body as {
+    const { sourceUrl, sourceName, sources, historical } = body as {
       sourceUrl?: string;
       sourceName?: string;
       sources?: string[];
+      historical?: { sources: string[]; months: string[] }; // e.g., { sources: ['augsburg', 'faz'], months: ['januar-2025', 'februar-2025'] }
     };
 
     const allSources = OBITUARY_SOURCES.map((s) => ({ id: s.id, url: s.url, name: s.name }));
 
+    // Historical source URL mapping for monthly archives
+    const HISTORICAL_BASE_URLS: Record<string, string> = {
+      'augsburg': 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/monat-',
+      'die-glocke': 'https://trauer.die-glocke.de/traueranzeigen-suche/monat-',
+      'faz': 'https://lebenswege.faz.net/traueranzeigen-suche/monat-',
+      'rheinmain': 'https://trauer-rheinmain.de/traueranzeigen-suche/monat-',
+      'stuttgart': 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/monat-',
+      'nrw': 'https://trauer-in-nrw.de/traueranzeigen-suche/monat-',
+      'muenster': 'https://www.trauer.ms/traueranzeigen-suche/monat-',
+      'wirtrauern': 'https://www.wirtrauern.de/traueranzeigen-suche/monat-',
+      'mannheim': 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/monat-',
+      'hamburger-trauer': 'https://hamburgertrauer.de/traueranzeigen-suche/monat-',
+      'trauerundgedenken': 'https://www.trauerundgedenken.de/traueranzeigen-suche/monat-',
+      'dortmund': 'https://sich-erinnern.de/traueranzeigen-suche/monat-',
+    };
+
     // If specific URL provided, scrape that; otherwise scrape selected sources (or all)
     let urlsToScrape: Array<{ id?: string; url: string; name: string }> = [];
-    if (sourceUrl) {
+    
+    if (historical && historical.sources && historical.months) {
+      // Historical mode: generate URLs for each source + month combination
+      for (const sourceId of historical.sources) {
+        const sourceInfo = allSources.find(s => s.id === sourceId);
+        const baseUrl = HISTORICAL_BASE_URLS[sourceId];
+        if (sourceInfo && baseUrl) {
+          for (const month of historical.months) {
+            urlsToScrape.push({
+              id: sourceId,
+              url: `${baseUrl}${month}`,
+              name: `${sourceInfo.name} (${month})`
+            });
+          }
+        } else if (sourceInfo) {
+          console.log(`No historical URL template for source: ${sourceId}`);
+        }
+      }
+      console.log(`Historical scraping: ${urlsToScrape.length} URLs to process`);
+    } else if (sourceUrl) {
       urlsToScrape = [{ url: sourceUrl, name: sourceName || 'Manuell' }];
     } else if (Array.isArray(sources) && sources.length > 0) {
       const selected = allSources.filter((s) => sources.includes(s.id));
