@@ -6,7 +6,6 @@ import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { useSearchParams } from "react-router-dom";
 import bgSearch from "@/assets/bg-search.jpg";
 import { PAGE_COLORS } from "@/lib/colorVariations";
@@ -295,6 +294,58 @@ const Search = () => {
     return labels[field] || field;
   };
 
+  // Generate page numbers to display
+  const getPageNumbers = (): (number | "ellipsis")[] => {
+    const pages: (number | "ellipsis")[] = [];
+    const showPages = 5; // Number of pages to show around current
+    
+    if (totalPages <= 9) {
+      // Show all pages if 9 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      // Calculate range around current page
+      let start = Math.max(2, currentPage - Math.floor(showPages / 2));
+      let end = Math.min(totalPages - 1, currentPage + Math.floor(showPages / 2));
+      
+      // Adjust if at the beginning
+      if (currentPage <= 4) {
+        start = 2;
+        end = 6;
+      }
+      
+      // Adjust if at the end
+      if (currentPage >= totalPages - 3) {
+        start = totalPages - 5;
+        end = totalPages - 1;
+      }
+      
+      // Add ellipsis before range if needed
+      if (start > 2) {
+        pages.push("ellipsis");
+      }
+      
+      // Add pages in range
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      // Add ellipsis after range if needed
+      if (end < totalPages - 1) {
+        pages.push("ellipsis");
+      }
+      
+      // Always show last page
+      pages.push(totalPages);
+    }
+    
+    return pages;
+  };
+
   return (
     <Layout>
       <Helmet>
@@ -381,79 +432,73 @@ const Search = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-                  <div className="flex items-center gap-1">
-                    {/* First page */}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      title="Erste Seite"
-                    >
-                      <ChevronsLeft className="h-4 w-4" />
-                    </Button>
-                    
-                    {/* Previous page */}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      title="Vorherige Seite"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    
-                    {/* Page input */}
-                    <div className="flex items-center gap-2 mx-2">
-                      <span className="text-sm text-muted-foreground">Seite</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={totalPages}
-                        value={currentPage}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (!isNaN(val) && val >= 1 && val <= totalPages) {
-                            setCurrentPage(val);
-                          }
-                        }}
-                        onBlur={(e) => {
-                          const val = parseInt(e.target.value, 10);
-                          if (isNaN(val) || val < 1) {
-                            setCurrentPage(1);
-                          } else if (val > totalPages) {
-                            setCurrentPage(totalPages);
-                          }
-                        }}
-                        className="w-16 h-9 text-center"
-                      />
-                      <span className="text-sm text-muted-foreground">von {totalPages}</span>
-                    </div>
-                    
-                    {/* Next page */}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      title="Nächste Seite"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                    
-                    {/* Last page */}
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      title="Letzte Seite"
-                    >
-                      <ChevronsRight className="h-4 w-4" />
-                    </Button>
+                <div className="flex flex-wrap items-center justify-center gap-1 mt-12">
+                  {/* First page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    title="Erste Seite"
+                    className="hidden sm:inline-flex"
+                  >
+                    <ChevronsLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Previous page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    title="Vorherige Seite"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex items-center gap-1 mx-1">
+                    {getPageNumbers().map((page, index) => 
+                      page === "ellipsis" ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">
+                          …
+                        </span>
+                      ) : (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="icon"
+                          onClick={() => setCurrentPage(page)}
+                          className="w-9 h-9"
+                        >
+                          {page}
+                        </Button>
+                      )
+                    )}
                   </div>
+                  
+                  {/* Next page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    title="Nächste Seite"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  
+                  {/* Last page */}
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    title="Letzte Seite"
+                    className="hidden sm:inline-flex"
+                  >
+                    <ChevronsRight className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
             </>
