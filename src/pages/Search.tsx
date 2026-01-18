@@ -445,6 +445,20 @@ const Search = () => {
                     <ChevronsLeft className="h-4 w-4" />
                   </Button>
                   
+                  {/* Back 10 pages */}
+                  {totalPages > 10 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 10))}
+                      disabled={currentPage <= 10}
+                      title="10 Seiten zurück"
+                      className="hidden sm:inline-flex px-2 text-xs"
+                    >
+                      -10
+                    </Button>
+                  )}
+                  
                   {/* Previous page */}
                   <Button
                     variant="outline"
@@ -487,6 +501,20 @@ const Search = () => {
                   >
                     <ChevronRight className="h-4 w-4" />
                   </Button>
+                  
+                  {/* Forward 10 pages */}
+                  {totalPages > 10 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 10))}
+                      disabled={currentPage > totalPages - 10}
+                      title="10 Seiten vor"
+                      className="hidden sm:inline-flex px-2 text-xs"
+                    >
+                      +10
+                    </Button>
+                  )}
                   
                   {/* Last page */}
                   <Button
