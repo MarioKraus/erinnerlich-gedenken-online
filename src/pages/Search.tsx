@@ -5,7 +5,8 @@ import AdvancedSearchForm, { SearchFilter } from "@/components/search/AdvancedSe
 import ObituaryCard, { Obituary } from "@/components/obituary/ObituaryCard";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useSearchParams } from "react-router-dom";
 import bgSearch from "@/assets/bg-search.jpg";
 import { PAGE_COLORS } from "@/lib/colorVariations";
@@ -380,28 +381,79 @@ const Search = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 mt-12">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <span className="text-sm text-muted-foreground px-4">
-                    Seite {currentPage} von {totalPages}
-                  </span>
-                  
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
+                  <div className="flex items-center gap-1">
+                    {/* First page */}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                      title="Erste Seite"
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Previous page */}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      title="Vorherige Seite"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Page input */}
+                    <div className="flex items-center gap-2 mx-2">
+                      <span className="text-sm text-muted-foreground">Seite</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={totalPages}
+                        value={currentPage}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                            setCurrentPage(val);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (isNaN(val) || val < 1) {
+                            setCurrentPage(1);
+                          } else if (val > totalPages) {
+                            setCurrentPage(totalPages);
+                          }
+                        }}
+                        className="w-16 h-9 text-center"
+                      />
+                      <span className="text-sm text-muted-foreground">von {totalPages}</span>
+                    </div>
+                    
+                    {/* Next page */}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      title="Nächste Seite"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Last page */}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                      title="Letzte Seite"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>
