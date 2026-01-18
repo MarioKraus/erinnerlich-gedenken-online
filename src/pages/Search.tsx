@@ -124,34 +124,92 @@ const Search = () => {
         }
       }
 
-      // Apply text filters
+      // Apply text filters with proper AND/OR logic
       if (textFilters.length > 0) {
-        const orParts: string[] = [];
+        // Group filters by operator logic
+        // First filter is always AND (base filter)
+        // Subsequent filters use their operator to connect to previous
         
-        for (const filter of textFilters) {
+        // Build filter condition for a single filter
+        const buildFilterCondition = (filter: SearchFilter): string => {
           const value = filter.value.trim();
           const likeValue = wildcardToLike(value);
-
+          
           switch (filter.field) {
             case "name":
-              orParts.push(`name.ilike.%${likeValue}%`);
-              orParts.push(`location.ilike.%${likeValue}%`);
-              break;
+              // For simple search, check both name and location
+              return `name.ilike.%${likeValue}%,location.ilike.%${likeValue}%`;
             case "nachname":
             case "vorname":
-              orParts.push(`name.ilike.%${likeValue}%`);
-              break;
+              return `name.ilike.%${likeValue}%`;
             case "ort":
-              orParts.push(`location.ilike.%${likeValue}%`);
-              break;
+              return `location.ilike.%${likeValue}%`;
             case "quelle":
-              orParts.push(`source.ilike.%${likeValue}%`);
-              break;
+              return `source.ilike.%${likeValue}%`;
+            default:
+              return "";
           }
-        }
+        };
 
-        if (orParts.length > 0) {
-          query = query.or(orParts.join(","));
+        // Check if all filters use AND operator
+        const allAnd = textFilters.every((f, i) => i === 0 || f.operator === "AND");
+        
+        // Check if all filters use OR operator
+        const allOr = textFilters.every((f, i) => i === 0 || f.operator === "OR");
+
+        if (allAnd) {
+          // All AND: Apply each filter sequentially (intersection)
+          for (const filter of textFilters) {
+            const condition = buildFilterCondition(filter);
+            if (condition) {
+              // For AND, we need to apply each as a separate .or() for the same field
+              // This ensures each filter must match (AND between filters)
+              query = query.or(condition);
+            }
+          }
+        } else if (allOr) {
+          // All OR: Combine all conditions into one .or() call
+          const allConditions: string[] = [];
+          for (const filter of textFilters) {
+            const condition = buildFilterCondition(filter);
+            if (condition) {
+              allConditions.push(condition);
+            }
+          }
+          if (allConditions.length > 0) {
+            query = query.or(allConditions.join(","));
+          }
+        } else {
+          // Mixed operators: Process in order, grouping consecutive ORs
+          // This is a simplified approach - group OR filters together, AND between groups
+          const groups: { filters: SearchFilter[]; operator: "AND" | "OR" }[] = [];
+          let currentGroup: SearchFilter[] = [textFilters[0]];
+          
+          for (let i = 1; i < textFilters.length; i++) {
+            const filter = textFilters[i];
+            if (filter.operator === "OR") {
+              currentGroup.push(filter);
+            } else {
+              // AND operator - save current group and start new one
+              groups.push({ filters: currentGroup, operator: "OR" });
+              currentGroup = [filter];
+            }
+          }
+          groups.push({ filters: currentGroup, operator: "OR" });
+
+          // Apply each group - groups are ANDed together
+          for (const group of groups) {
+            const groupConditions: string[] = [];
+            for (const filter of group.filters) {
+              const condition = buildFilterCondition(filter);
+              if (condition) {
+                groupConditions.push(condition);
+              }
+            }
+            if (groupConditions.length > 0) {
+              query = query.or(groupConditions.join(","));
+            }
+          }
         }
       }
 
