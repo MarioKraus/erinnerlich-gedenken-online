@@ -38,21 +38,36 @@ const CondolenceModal = ({ open, onOpenChange, obituaryId, obituaryName, onSucce
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from("condolences")
-        .insert({
-          obituary_id: obituaryId,
-          author_name: name.trim(),
-          author_email: email || null,
-          message: message.trim(),
-          is_approved: true, // Auto-approve for now
-        });
+      const { data, error } = await supabase.functions.invoke("submit-public-content", {
+        body: {
+          type: "condolence",
+          data: {
+            obituary_id: obituaryId,
+            author_name: name.trim(),
+            author_email: email || null,
+            message: message.trim(),
+          },
+        },
+      });
 
       if (error) throw error;
+      
+      if (data?.error) {
+        if (data.code === "RATE_LIMITED") {
+          toast({
+            title: "Zu viele Anfragen",
+            description: "Bitte versuchen Sie es später erneut.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
+        }
+        return;
+      }
 
       toast({
-        title: "Kondolenz gesendet",
-        description: "Ihre Anteilnahme wurde übermittelt.",
+        title: "Kondolenz eingereicht",
+        description: "Ihre Anteilnahme wird nach Prüfung veröffentlicht.",
       });
 
       setName("");
@@ -81,7 +96,7 @@ const CondolenceModal = ({ open, onOpenChange, obituaryId, obituaryName, onSucce
             Kondolenz schreiben
           </DialogTitle>
           <DialogDescription>
-            Drücken Sie Ihre Anteilnahme für {obituaryName} aus.
+            Drücken Sie Ihre Anteilnahme für {obituaryName} aus. Nach Prüfung wird Ihre Nachricht veröffentlicht.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
