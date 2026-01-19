@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2, Calendar } from "lucide-react";
+import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2, Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -147,6 +147,10 @@ const Admin = () => {
   const [historicalMonth, setHistoricalMonth] = useState<string>("");
   const [isScrapingHistorical, setIsScrapingHistorical] = useState(false);
   const [historicalResult, setHistoricalResult] = useState<{ month: string; source: string; parsed: number; inserted: number } | null>(null);
+  
+  // Recent obituaries pagination state
+  const [recentPage, setRecentPage] = useState(1);
+  const RECENT_PER_PAGE = 12;
 
   // Fetch source statistics
   const { data: sourceStats } = useQuery({
@@ -419,14 +423,30 @@ const Admin = () => {
         .select("*", { count: "exact", head: true })
         .gte("created_at", today);
 
-      // Get obituaries from last 48 hours
+      // Get total count of obituaries from last 48 hours
       const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const { data: recentObituaries } = await supabase
+      const { count: recentCount } = await supabase
         .from("obituaries")
-        .select("id, name, source, created_at")
-        .gte("created_at", fortyEightHoursAgo)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", fortyEightHoursAgo);
+
+      // Get all obituaries from last 48 hours (paginated fetch to bypass 1000 limit)
+      let allRecentObituaries: { id: string; name: string; source: string | null; created_at: string }[] = [];
+      const totalRecent = recentCount || 0;
+      const batchSize = 1000;
+      
+      for (let offset = 0; offset < totalRecent; offset += batchSize) {
+        const { data: batch } = await supabase
+          .from("obituaries")
+          .select("id, name, source, created_at")
+          .gte("created_at", fortyEightHoursAgo)
+          .order("created_at", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+        
+        if (batch) {
+          allRecentObituaries = [...allRecentObituaries, ...batch];
+        }
+      }
 
       const { data: allObituaries } = await supabase
         .from("obituaries")
@@ -444,7 +464,8 @@ const Admin = () => {
       return {
         total: total || 0,
         today: todayCount || 0,
-        recent: recentObituaries || [],
+        recent: allRecentObituaries,
+        recentCount: totalRecent,
         allList: allObituaries || [],
         todayList: todayObituaries || [],
       };
@@ -1259,16 +1280,146 @@ const Admin = () => {
           <CardHeader>
             <CardTitle>Zuletzt importiert</CardTitle>
             <CardDescription>
-              Traueranzeigen der letzten 48 Stunden ({obituaryStats?.recent?.length || 0} Einträge).
+              Traueranzeigen der letzten 48 Stunden ({obituaryStats?.recentCount || 0} Einträge).
             </CardDescription>
           </CardHeader>
           <CardContent>
             {obituaryStats?.recent && obituaryStats.recent.length > 0 ? (
-              <div className="space-y-2">
-                {obituaryStats.recent.map((obituary) => (
-                  <ObituaryListItem key={obituary.id} obituary={obituary} />
-                ))}
-              </div>
+              (() => {
+                const totalRecentPages = Math.ceil(obituaryStats.recent.length / RECENT_PER_PAGE);
+                const startIndex = (recentPage - 1) * RECENT_PER_PAGE;
+                const paginatedRecent = obituaryStats.recent.slice(startIndex, startIndex + RECENT_PER_PAGE);
+                
+                // Generate page numbers for display
+                const getRecentPageNumbers = () => {
+                  const pages: (number | 'ellipsis')[] = [];
+                  const maxVisible = 5;
+                  
+                  if (totalRecentPages <= maxVisible + 2) {
+                    for (let i = 1; i <= totalRecentPages; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (recentPage > 3) pages.push('ellipsis');
+                    
+                    const start = Math.max(2, recentPage - 1);
+                    const end = Math.min(totalRecentPages - 1, recentPage + 1);
+                    
+                    for (let i = start; i <= end; i++) pages.push(i);
+                    
+                    if (recentPage < totalRecentPages - 2) pages.push('ellipsis');
+                    pages.push(totalRecentPages);
+                  }
+                  return pages;
+                };
+                
+                return (
+                  <>
+                    <div className="space-y-2">
+                      {paginatedRecent.map((obituary) => (
+                        <ObituaryListItem key={obituary.id} obituary={obituary} />
+                      ))}
+                    </div>
+                    
+                    {/* Pagination */}
+                    {totalRecentPages > 1 && (
+                      <div className="flex flex-wrap items-center justify-center gap-1 mt-6">
+                        {/* First page */}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRecentPage(1)}
+                          disabled={recentPage === 1}
+                          title="Erste Seite"
+                          className="h-8 w-8"
+                        >
+                          <ChevronsLeft className="h-4 w-4" />
+                        </Button>
+                        
+                        {/* Back 10 pages */}
+                        {totalRecentPages > 10 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRecentPage((p) => Math.max(1, p - 10))}
+                            disabled={recentPage <= 10}
+                            title="10 Seiten zurück"
+                            className="h-8 px-2 text-xs"
+                          >
+                            -10
+                          </Button>
+                        )}
+                        
+                        {/* Previous page */}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRecentPage((p) => Math.max(1, p - 1))}
+                          disabled={recentPage === 1}
+                          title="Vorherige Seite"
+                          className="h-8 w-8"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        
+                        {/* Page numbers */}
+                        {getRecentPageNumbers().map((page, index) => (
+                          page === 'ellipsis' ? (
+                            <span key={`ellipsis-${index}`} className="px-2 text-muted-foreground">...</span>
+                          ) : (
+                            <Button
+                              key={page}
+                              variant={recentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setRecentPage(page)}
+                              className="h-8 w-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          )
+                        ))}
+                        
+                        {/* Next page */}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRecentPage((p) => Math.min(totalRecentPages, p + 1))}
+                          disabled={recentPage === totalRecentPages}
+                          title="Nächste Seite"
+                          className="h-8 w-8"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        
+                        {/* Forward 10 pages */}
+                        {totalRecentPages > 10 && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRecentPage((p) => Math.min(totalRecentPages, p + 10))}
+                            disabled={recentPage > totalRecentPages - 10}
+                            title="10 Seiten vor"
+                            className="h-8 px-2 text-xs"
+                          >
+                            +10
+                          </Button>
+                        )}
+                        
+                        {/* Last page */}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setRecentPage(totalRecentPages)}
+                          disabled={recentPage === totalRecentPages}
+                          title="Letzte Seite"
+                          className="h-8 w-8"
+                        >
+                          <ChevronsRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
                 <AlertCircle className="h-5 w-5" />
