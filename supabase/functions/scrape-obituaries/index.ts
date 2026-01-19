@@ -156,8 +156,18 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     const sourcePatterns = [
       // Specific source abbreviations and names (case-insensitive)
       /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|OFHA|BOWO|OF|GESAMT|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|Rhein-Hunsrück-Zeitung|Rhein-Lahn-Zeitung|Nahe-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|Trierischer Volksfreund|Trierischer|trierischer|Saarbrücker|saarbruecker|FNP|Mindelheimer|GmbH).*$/i,
+      // Freie Presse Sachsen regional editions (cities as source identifiers)
+      /\s+von\s+(Aue|Marienberg|Zwickau|Freiberg|Glauchau|Hohenstein-Ernstthal|Mittweida|Plauen|Schwarzenberg|Stollberg|Werdau|Zschopau|Chemnitz|Annaberg|Auerbach|Oelsnitz|Reichenbach|Crimmitschau|Limbach-Oberfrohna|Frankenberg|Flöha|Döbeln|Brand-Erbisdorf|Olbernhau|Burgstädt)$/i,
+      // Additional specific newspaper names
+      /\s+von\s+(Aichacher Nachrichten|Allgemeine Zeitung Alzey|Allgemeine Zeitung Mainz|Darmstädter Echo|Der Prignitzer|Die Glocke|Die Harke|Dill Block|Donau Zeitung|Donauwörther Zeitung|Friedberger Allgemeine|Groß-Gerauer Echo|Günzburger Zeitung|Hochheimer Zeitung|Illertisser Zeitung|Lübecker Nachrichten|Mittelschwäbische Nachrichten|Nassauische Neue Presse|Neu-Ulmer Zeitung|Neuburger Rundschau|Norddeutsche Neueste Nachrichten|Nordkurier Demminer Zeitung|Nordkurier Grosso|Nordkurier Müritz-Zeitung|Nordkurier Neubrandenburger Zeitung|Nordkurier Vorpommern Kurier|Offenbach|Ostfriesischer Kurier|Rieser Nachrichten|Schaumburger Nachrichten|Stadtspiegel Bottrop|Stadtspiegel Essen|Trauer Vest|Uckermark Kurier Prenzlauer Zeitung|Uckermark Kurier Templiner Zeitung|Westerwälder Zeitung|Wetzlarer Neue Zeitung|Wiesbadener Kurier).*$/i,
       // Generic pattern: "von [Name] Zeitung/Nachrichten/etc."
-      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung|Volksfreund).*$/i,
+      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung|Volksfreund|Echo|Presse|Block).*$/i,
+      // Nordkurier sub-editions pattern
+      /\s+von\s+Nordkurier\s+.*$/i,
+      // Uckermark Kurier pattern
+      /\s+von\s+Uckermark\s+Kurier.*$/i,
+      // Stadtspiegel pattern
+      /\s+von\s+Stadtspiegel\s+.*$/i,
       // Company names
       /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*GmbH.*$/i,
     ];
