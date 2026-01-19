@@ -147,6 +147,27 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          ip_hash: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          ip_hash: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          ip_hash?: string
+        }
+        Relationships: []
+      }
       scraper_settings: {
         Row: {
           created_at: string
@@ -288,6 +309,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: { p_action: string; p_ip_hash: string; p_max_requests?: number }
+        Returns: boolean
+      }
+      cleanup_old_rate_limits: { Args: never; Returns: undefined }
       find_duplicate_obituaries: {
         Args: never
         Returns: {

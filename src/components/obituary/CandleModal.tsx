@@ -27,15 +27,31 @@ const CandleModal = ({ open, onOpenChange, obituaryId, obituaryName, onSuccess }
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from("candles")
-        .insert({
-          obituary_id: obituaryId,
-          lighter_name: name || null,
-          message: message || null,
-        });
+      const { data, error } = await supabase.functions.invoke("submit-public-content", {
+        body: {
+          type: "candle",
+          data: {
+            obituary_id: obituaryId,
+            lighter_name: name || null,
+            message: message || null,
+          },
+        },
+      });
 
       if (error) throw error;
+      
+      if (data?.error) {
+        if (data.code === "RATE_LIMITED") {
+          toast({
+            title: "Zu viele Anfragen",
+            description: "Bitte versuchen Sie es später erneut.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
+        }
+        return;
+      }
 
       toast({
         title: "Kerze angezündet",

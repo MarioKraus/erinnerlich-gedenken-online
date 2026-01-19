@@ -48,38 +48,52 @@ const CreateObituary = () => {
 
     setIsSubmitting(true);
 
-    const { data, error } = await supabase
-      .from("obituaries")
-      .insert({
-        name: formData.name.trim(),
-        birth_date: formData.birthDate || null,
-        death_date: formData.deathDate,
-        location: formData.location.trim() || null,
-        text: formData.text.trim() || null,
-        photo_url: formData.photoUrl.trim() || null,
-        source: "Erinnerlich",
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-public-content", {
+        body: {
+          type: "obituary",
+          data: {
+            name: formData.name.trim(),
+            birth_date: formData.birthDate || null,
+            death_date: formData.deathDate,
+            location: formData.location.trim() || null,
+            text: formData.text.trim() || null,
+            photo_url: formData.photoUrl.trim() || null,
+          },
+        },
+      });
 
-    setIsSubmitting(false);
+      if (error) throw error;
+      
+      if (data?.error) {
+        if (data.code === "RATE_LIMITED") {
+          toast({
+            title: "Zu viele Anfragen",
+            description: "Bitte versuchen Sie es später erneut.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
+        }
+        return;
+      }
 
-    if (error) {
+      toast({
+        title: "Traueranzeige erstellt",
+        description: "Ihre Traueranzeige wurde erfolgreich veröffentlicht.",
+      });
+
+      navigate(`/traueranzeige/${data.data.id}`);
+    } catch (error) {
       console.error("Error creating obituary:", error);
       toast({
         title: "Fehler",
         description: "Die Traueranzeige konnte nicht erstellt werden. Bitte versuchen Sie es erneut.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    toast({
-      title: "Traueranzeige erstellt",
-      description: "Ihre Traueranzeige wurde erfolgreich veröffentlicht.",
-    });
-
-    navigate(`/traueranzeige/${data.id}`);
   };
 
   const nextStep = () => setStep((s) => Math.min(3, s + 1));
