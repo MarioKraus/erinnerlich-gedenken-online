@@ -480,16 +480,31 @@ const Admin = () => {
   }>({
     queryKey: ["scraper-settings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("scraper_settings" as any)
-        .select("*")
-        .single();
+      // First try to get from edge function (works without auth, uses service role)
+      const { data: cronJobsData } = await supabase.functions.invoke("get-cron-jobs");
+      const jobs = cronJobsData?.jobs || [];
       
-      if (error) {
-        console.error("Error fetching scraper settings:", error);
-        return { id: '', cron_interval: '0 * * * *', is_active: true, last_run_at: null };
-      }
-      return data as any;
+      // Find the first active scrape job to determine schedule
+      const activeJob = jobs.find((j: any) => j.active && j.name?.includes('obituary-scrape'));
+      const hasActiveJobs = jobs.some((j: any) => j.active && j.name?.includes('obituary-scrape'));
+      
+      // Get last run from recent obituary imports
+      const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const { data: recentRun } = await supabase
+        .from("obituaries")
+        .select("created_at")
+        .gte("created_at", fortyEightHoursAgo)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      const lastRunAt = recentRun?.[0]?.created_at || null;
+      
+      return { 
+        id: 'derived', 
+        cron_interval: activeJob?.schedule || '33 13 * * *', 
+        is_active: hasActiveJobs,
+        last_run_at: lastRunAt
+      };
     },
   });
 
