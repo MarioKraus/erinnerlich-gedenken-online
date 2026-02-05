@@ -16,7 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 // All configured newspaper sources - synced with edge function, sorted alphabetically
 const NEWSPAPER_SOURCES = [
   { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'bestattung-kinelly', name: 'Bestattung Kinelly', url: 'https://kinelly.at/trauerfaelle/' },
   { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
+  { id: 'erzbistum-muenchen', name: 'Erzbistum München', url: 'https://www.erzbistum-muenchen.de/ueber-uns/totentafel' },
   { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },

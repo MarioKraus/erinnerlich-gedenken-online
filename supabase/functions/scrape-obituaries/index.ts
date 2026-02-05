@@ -8,7 +8,9 @@ const corsHeaders = {
 // German obituary sources sorted alphabetically (for sequential scraping starting with Augsburger Allgemeine)
 const OBITUARY_SOURCES = [
   { id: 'augsburg', name: 'Augsburger Allgemeine', url: 'https://trauer.augsburger-allgemeine.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'bestattung-kinelly', name: 'Bestattung Kinelly', url: 'https://kinelly.at/trauerfaelle/' },
   { id: 'die-glocke', name: 'Die Glocke', url: 'https://trauer.die-glocke.de/' },
+  { id: 'erzbistum-muenchen', name: 'Erzbistum München', url: 'https://www.erzbistum-muenchen.de/ueber-uns/totentafel' },
   { id: 'faz', name: 'Frankfurter Allgemeine', url: 'https://lebenswege.faz.net/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'rheinmain', name: 'Frankfurter Rundschau', url: 'https://trauer-rheinmain.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
@@ -98,6 +100,14 @@ async function scrapeUrl(url: string, apiKey: string, retryCount = 0): Promise<a
 }
 
 function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedObituary[] {
+  // Source-specific parsers
+  if (source === 'Erzbistum München') {
+    return parseErzbistumMuenchen(markdown, source);
+  }
+  if (source === 'Bestattung Kinelly') {
+    return parseBestattungKinelly(markdown, source);
+  }
+  
   const obituaries: ScrapedObituary[] = [];
   const today = new Date().toISOString().split('T')[0];
   const seenNames = new Set<string>();
@@ -414,6 +424,7 @@ function extractLocationFromSource(source: string): string | null {
     'Hamburger Abendblatt': 'Hamburg',
     'Süddeutsche Zeitung': 'München',
     'Münchner Merkur': 'München',
+    'Erzbistum München': 'München',
     'Kölner Stadt-Anzeiger': 'Köln',
     'Frankfurter Allgemeine': 'Frankfurt',
     'Frankfurter Rundschau': 'Frankfurt',
@@ -450,9 +461,136 @@ function extractLocationFromSource(source: string): string | null {
     'Fränkische Nachrichten': 'Tauberbischofsheim',
     'SVZ': 'Schwerin',
     'Trauerfall.de': null,
-    'Trauer-Anzeigen.de': null
+    'Trauer-Anzeigen.de': null,
+    // Austrian sources
+    'Bestattung Kinelly': 'Pinkafeld'
   };
   return sourceLocationMap[source] ?? null;
+}
+
+// Parser for Erzbistum München format: "21.01. **Christian Losbichler**, Diakon mit Zivilberuf"
+function parseErzbistumMuenchen(markdown: string, source: string): ScrapedObituary[] {
+  const obituaries: ScrapedObituary[] = [];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const todayStr = today.toISOString().split('T')[0];
+  const seenNames = new Set<string>();
+  
+  // Pattern: DD.MM. **Name**, Role/Title
+  // Examples: "21.01. **Christian Losbichler**, Diakon mit Zivilberuf"
+  const pattern = /(\d{1,2})\.(\d{1,2})\.\s*\*\*([^*]+)\*\*(?:,\s*([^\\n]+))?/gi;
+  
+  let match;
+  while ((match = pattern.exec(markdown)) !== null) {
+    const [, day, month, name, role] = match;
+    const cleanName = name.trim();
+    
+    // Validate name (at least first + last name)
+    const nameParts = cleanName.split(/\s+/).filter(p => p.length > 1);
+    if (nameParts.length < 2) continue;
+    
+    const lowerName = cleanName.toLowerCase();
+    if (seenNames.has(lowerName)) continue;
+    seenNames.add(lowerName);
+    
+    // Construct death date (assume current year)
+    const deathDate = `${currentYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    
+    obituaries.push({
+      name: cleanName,
+      birth_date: null,
+      death_date: deathDate,
+      death_date_confirmed: true,
+      publication_date: todayStr,
+      location: 'München',
+      text: role?.trim() || null, // Store role/title as text
+      source,
+      photo_url: null
+    });
+  }
+  
+  console.log(`Erzbistum München parser found ${obituaries.length} obituaries`);
+  return obituaries;
+}
+
+// Parser for Bestattung Kinelly format:
+// ##### Name(age)
+// \\* DD.MM.YYYY
+// † DD.MM.YYYY
+// Location
+// ![](imageUrl)
+function parseBestattungKinelly(markdown: string, source: string): ScrapedObituary[] {
+  const obituaries: ScrapedObituary[] = [];
+  const today = new Date().toISOString().split('T')[0];
+  const seenNames = new Set<string>();
+  
+  // Split by entries (each starts with #####)
+  const entries = markdown.split(/#{5}\s+/).filter(e => e.trim());
+  
+  for (const entry of entries) {
+    // Extract name and optional age: "Hedwig Hatraka(93)"
+    const nameMatch = entry.match(/^([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*(?:\((\d+)\))?/i);
+    if (!nameMatch) continue;
+    
+    const name = nameMatch[1].trim();
+    const lowerName = name.toLowerCase();
+    
+    if (seenNames.has(lowerName)) continue;
+    seenNames.add(lowerName);
+    
+    // Extract birth date: \\* DD.MM.YYYY
+    const birthMatch = entry.match(/\\\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    const birthDate = birthMatch 
+      ? `${birthMatch[3]}-${birthMatch[2].padStart(2, '0')}-${birthMatch[1].padStart(2, '0')}`
+      : null;
+    
+    // Extract death date: † DD.MM.YYYY
+    const deathMatch = entry.match(/†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+    const deathDate = deathMatch 
+      ? `${deathMatch[3]}-${deathMatch[2].padStart(2, '0')}-${deathMatch[1].padStart(2, '0')}`
+      : null;
+    
+    // Extract location (line after death date, before image)
+    const lines = entry.split('\n').map(l => l.trim()).filter(l => l);
+    let location: string | null = null;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes('†') && i + 1 < lines.length) {
+        const nextLine = lines[i + 1];
+        // Location is a line that doesn't start with [ or ! (not a link/image)
+        if (nextLine && !nextLine.startsWith('[') && !nextLine.startsWith('!') && !nextLine.startsWith('#')) {
+          location = nextLine;
+          break;
+        }
+      }
+    }
+    
+    // Extract photo URL: ![](url) or ![...](url)
+    const photoMatch = entry.match(/!\[[^\]]*\]\(([^)]+)\)/);
+    let photoUrl: string | null = null;
+    if (photoMatch) {
+      const url = photoMatch[1];
+      // Only accept valid image URLs
+      if (url && !url.includes('icon') && !url.includes('logo') && 
+          (url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('.webp'))) {
+        photoUrl = url;
+      }
+    }
+    
+    obituaries.push({
+      name,
+      birth_date: birthDate,
+      death_date: deathDate,
+      death_date_confirmed: deathDate !== null,
+      publication_date: today,
+      location: location || 'Pinkafeld',
+      text: null,
+      source,
+      photo_url: photoUrl
+    });
+  }
+  
+  console.log(`Bestattung Kinelly parser found ${obituaries.length} obituaries`);
+  return obituaries;
 }
 
 Deno.serve(async (req) => {
