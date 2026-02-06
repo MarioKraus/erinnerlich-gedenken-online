@@ -18,6 +18,7 @@ const OBITUARY_SOURCES = [
   { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
   { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
   { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
+  { id: 'nicklaus', name: 'Nicklaus Bestattungen', url: 'https://www.nicklaus-bestattungen.de/de/totentafel/' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
@@ -106,6 +107,9 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   }
   if (source === 'Bestattung Kinelly') {
     return parseBestattungKinelly(markdown, source);
+  }
+  if (source === 'Nicklaus Bestattungen') {
+    return parseNicklausBestattungen(markdown, source);
   }
   
   const obituaries: ScrapedObituary[] = [];
@@ -463,7 +467,9 @@ function extractLocationFromSource(source: string): string | null {
     'Trauerfall.de': null,
     'Trauer-Anzeigen.de': null,
     // Austrian sources
-    'Bestattung Kinelly': 'Pinkafeld'
+    'Bestattung Kinelly': 'Pinkafeld',
+    // German funeral homes
+    'Nicklaus Bestattungen': 'Würzburg'
   };
   return sourceLocationMap[source] ?? null;
 }
@@ -590,6 +596,120 @@ function parseBestattungKinelly(markdown: string, source: string): ScrapedObitua
   }
   
   console.log(`Bestattung Kinelly parser found ${obituaries.length} obituaries`);
+  return obituaries;
+}
+
+// Parser for Nicklaus Bestattungen format:
+// Name (age Jahre)
+// [![](imageUrl)](link)
+// **Location**
+// **Date** 
+// Type (Urnenbeisetzung, etc.)
+// [Zur Gedenkseite](link)
+function parseNicklausBestattungen(markdown: string, source: string): ScrapedObituary[] {
+  const obituaries: ScrapedObituary[] = [];
+  const today = new Date().toISOString().split('T')[0];
+  const seenNames = new Set<string>();
+  
+  // Pattern 1: # Name (age Jahre) - header format
+  const headerPattern = /^#+\s+([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s+\((\d+)\s+Jahre\)/gm;
+  
+  let match;
+  while ((match = headerPattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    const age = match[2];
+    const lowerName = name.toLowerCase();
+    
+    if (seenNames.has(lowerName)) continue;
+    
+    // Validate name (at least first + last name)
+    const nameParts = name.split(/\s+/).filter(p => p.length > 1);
+    if (nameParts.length < 2) continue;
+    
+    seenNames.add(lowerName);
+    
+    // Look for photo URL after this entry
+    const followingText = markdown.substring(match.index, match.index + 1000);
+    
+    // Extract photo URL from [![](url)](link) pattern - skip SVG placeholders
+    const photoMatch = followingText.match(/\[!\[\]\((https?:\/\/[^)]+\.(?:jpg|jpeg|png|webp)[^)]*)\)\]/i);
+    let photoUrl: string | null = null;
+    if (photoMatch && !photoMatch[1].includes('svg') && !photoMatch[1].includes('data:image')) {
+      photoUrl = photoMatch[1];
+    }
+    
+    // Extract location from **Location** pattern
+    const locationMatch = followingText.match(/\*\*([A-ZÄÖÜ][a-zäöüß\s]+(?:Friedhof|kath\.|ev\.)?[^*]*)\*\*/);
+    let location: string | null = null;
+    if (locationMatch) {
+      const loc = locationMatch[1].trim();
+      // Skip date patterns and funeral-related terms
+      if (!loc.match(/^(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|im\s+engsten)/i)) {
+        location = loc;
+      }
+    }
+    
+    obituaries.push({
+      name,
+      birth_date: null,
+      death_date: null, // Nicklaus doesn't show exact death date, only age
+      death_date_confirmed: false,
+      publication_date: today,
+      location: location || 'Karlstadt',
+      text: age ? `${age} Jahre` : null,
+      source,
+      photo_url: photoUrl
+    });
+  }
+  
+  // Pattern 2: Plain name followed by (age Jahre) - non-header format
+  const plainPattern = /^([A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)+)\s*\n+\((\d+)\s+Jahre\)/gm;
+  
+  while ((match = plainPattern.exec(markdown)) !== null) {
+    const name = match[1].trim();
+    const age = match[2];
+    const lowerName = name.toLowerCase();
+    
+    if (seenNames.has(lowerName)) continue;
+    
+    // Validate name
+    const nameParts = name.split(/\s+/).filter(p => p.length > 1);
+    if (nameParts.length < 2) continue;
+    
+    seenNames.add(lowerName);
+    
+    // Look for photo URL
+    const followingText = markdown.substring(match.index, match.index + 1000);
+    const photoMatch = followingText.match(/\[!\[\]\((https?:\/\/[^)]+\.(?:jpg|jpeg|png|webp)[^)]*)\)\]/i);
+    let photoUrl: string | null = null;
+    if (photoMatch && !photoMatch[1].includes('svg') && !photoMatch[1].includes('data:image')) {
+      photoUrl = photoMatch[1];
+    }
+    
+    // Extract location
+    const locationMatch = followingText.match(/\*\*([A-ZÄÖÜ][a-zäöüß\s]+(?:Friedhof|kath\.|ev\.)?[^*]*)\*\*/);
+    let location: string | null = null;
+    if (locationMatch) {
+      const loc = locationMatch[1].trim();
+      if (!loc.match(/^(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|im\s+engsten)/i)) {
+        location = loc;
+      }
+    }
+    
+    obituaries.push({
+      name,
+      birth_date: null,
+      death_date: null,
+      death_date_confirmed: false,
+      publication_date: today,
+      location: location || 'Karlstadt',
+      text: age ? `${age} Jahre` : null,
+      source,
+      photo_url: photoUrl
+    });
+  }
+  
+  console.log(`Nicklaus Bestattungen parser found ${obituaries.length} obituaries`);
   return obituaries;
 }
 
