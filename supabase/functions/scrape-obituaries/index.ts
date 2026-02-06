@@ -16,13 +16,16 @@ const OBITUARY_SOURCES = [
   { id: 'freie-presse', name: 'Freie Presse', url: 'https://gedenken.freiepresse.de/' },
   { id: 'hamburger-trauer', name: 'Hamburger Abendblatt', url: 'https://hamburgertrauer.de/traueranzeigen-suche/letzte-14-tage/region-hamburger-abendblatt' },
   { id: 'heimatfriedhof', name: 'Heimatfriedhof.online', url: 'https://heimatfriedhof.online/' },
+  { id: 'infranken', name: 'inFranken.de', url: 'https://trauer.infranken.de/' },
   { id: 'wirtrauern', name: 'Kölner Stadt-Anzeiger', url: 'https://www.wirtrauern.de/traueranzeigen-suche/letzte-14-tage/region-köln' },
   { id: 'mannheim', name: 'Mannheimer Morgen', url: 'https://trauer.mannheimer-morgen.de/traueranzeigen-suche/letzte-14-tage' },
   { id: 'nicklaus', name: 'Nicklaus Bestattungen', url: 'https://www.nicklaus-bestattungen.de/de/totentafel/' },
+  { id: 'poppe', name: 'Poppe Heiligenstadt', url: 'https://www.poppe-heiligenstadt.de/bestattungen/traueranzeigen/2025' },
   { id: 'rz', name: 'Rhein-Zeitung', url: 'https://rz-trauer.de/' },
   { id: 'dortmund', name: 'Ruhr Nachrichten', url: 'https://sich-erinnern.de/traueranzeigen-suche/region-ruhr-nachrichten' },
   { id: 'saarbruecker', name: 'Saarbrücker Zeitung', url: 'https://saarbruecker-zeitung.trauer.de/' },
   { id: 'stuttgart', name: 'Stuttgarter Zeitung', url: 'https://www.stuttgart-gedenkt.de/traueranzeigen-suche/aktuelle-ausgabe' },
+  { id: 'sueddeutsche', name: 'Süddeutsche Zeitung', url: 'https://trauer.sueddeutsche.de/traueranzeigen-suche/aktuelle-ausgabe' },
   { id: 'nordkurier', name: 'Nordkurier', url: 'https://trauer.nordkurier.de' },
   { id: 'trauer-anzeigen', name: 'Trauer-Anzeigen.de', url: 'https://trauer-anzeigen.de/' },
   { id: 'trauer-de', name: 'Trauer.de', url: 'https://www.trauer.de/traueranzeigen-suche/region-waz--26--lokalkompass' },
@@ -110,6 +113,9 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
   }
   if (source === 'Nicklaus Bestattungen') {
     return parseNicklausBestattungen(markdown, source);
+  }
+  if (source === 'Poppe Heiligenstadt') {
+    return parsePoppeHeiligenstadt(markdown, source);
   }
   
   const obituaries: ScrapedObituary[] = [];
@@ -469,7 +475,11 @@ function extractLocationFromSource(source: string): string | null {
     // Austrian sources
     'Bestattung Kinelly': 'Pinkafeld',
     // German funeral homes
-    'Nicklaus Bestattungen': 'Würzburg'
+    'Nicklaus Bestattungen': 'Würzburg',
+    'Poppe Heiligenstadt': 'Heiligenstadt',
+    // Regional newspapers
+    'inFranken.de': 'Bamberg',
+    'Süddeutsche Zeitung': 'München'
   };
   return sourceLocationMap[source] ?? null;
 }
@@ -710,6 +720,73 @@ function parseNicklausBestattungen(markdown: string, source: string): ScrapedObi
   }
   
   console.log(`Nicklaus Bestattungen parser found ${obituaries.length} obituaries`);
+  return obituaries;
+}
+
+// Parser for Poppe Heiligenstadt format:
+// ## Name (- Danksagung)
+// \\* DD.MM.YYYY     † DD.MM.YYYY
+// ![](imageUrl)
+function parsePoppeHeiligenstadt(markdown: string, source: string): ScrapedObituary[] {
+  const obituaries: ScrapedObituary[] = [];
+  const today = new Date().toISOString().split('T')[0];
+  const seenNames = new Set<string>();
+  
+  // Pattern: ## Name followed by dates with \\* (escaped asterisk in markdown)
+  // The markdown has literal "\\*" which we need to match
+  // Examples: "## Beate Böttcher\n\n\\* 20.04.1967     † 25.12.2025"
+  const pattern = /##\s+([A-ZÄÖÜ][^\n]+?)\s*\n+\\\\?\*\s*(\d{1,2})\.(\d{1,2})\.(\d{4})\s+†\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/gi;
+  
+  let match;
+  while ((match = pattern.exec(markdown)) !== null) {
+    const [fullMatch, rawName, birthDay, birthMonth, birthYear, deathDay, deathMonth, deathYear] = match;
+    
+    // Clean name - remove " - Danksagung" suffix
+    let name = rawName.trim().replace(/\s+-\s+Danksagung$/i, '');
+    const lowerName = name.toLowerCase();
+    
+    if (seenNames.has(lowerName)) continue;
+    
+    // Validate name (at least first + last name)
+    const nameParts = name.split(/\s+/).filter(p => p.length > 1);
+    if (nameParts.length < 2) continue;
+    
+    // Skip "Danksagung" entries (thank you notes, not new obituaries)
+    if (rawName.toLowerCase().includes('danksagung')) continue;
+    
+    seenNames.add(lowerName);
+    
+    const birthDate = `${birthYear}-${birthMonth.padStart(2, '0')}-${birthDay.padStart(2, '0')}`;
+    const deathDate = `${deathYear}-${deathMonth.padStart(2, '0')}-${deathDay.padStart(2, '0')}`;
+    
+    // Look for photo URL after this entry
+    const followingText = markdown.substring(match.index, match.index + 500);
+    const photoMatch = followingText.match(/\[!\[\]\((https?:\/\/[^)]+\.(?:jpg|jpeg|png|webp)[^)]*)\)\]/i);
+    let photoUrl: string | null = null;
+    if (photoMatch) {
+      photoUrl = photoMatch[1];
+    } else {
+      // Try alternative pattern: ![](url)
+      const altPhotoMatch = followingText.match(/!\[\]\((https?:\/\/[^)]+\.(?:jpg|jpeg|png|webp)[^)]*)\)/i);
+      if (altPhotoMatch) {
+        photoUrl = altPhotoMatch[1];
+      }
+    }
+    
+    obituaries.push({
+      name,
+      birth_date: birthDate,
+      death_date: deathDate,
+      death_date_confirmed: true,
+      publication_date: today,
+      location: 'Heiligenstadt',
+      text: null,
+      source,
+      photo_url: photoUrl
+    });
+  }
+  
+  console.log(`Poppe Heiligenstadt parser found ${obituaries.length} obituaries`);
   return obituaries;
 }
 
