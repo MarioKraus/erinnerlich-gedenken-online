@@ -296,8 +296,8 @@ const Admin = () => {
       allRuns.forEach((item) => {
         const src = item.source || "Unbekannt";
         const time = new Date(item.created_at);
-        // Round to minute for grouping
-        const minuteKey = new Date(time.getFullYear(), time.getMonth(), time.getDate(), time.getHours(), time.getMinutes()).toISOString();
+        // Round to minute for grouping - use UTC to avoid timezone issues
+        const minuteKey = new Date(Date.UTC(time.getUTCFullYear(), time.getUTCMonth(), time.getUTCDate(), time.getUTCHours(), time.getUTCMinutes())).toISOString();
         
         if (!runsBySourceAndTime[src]) runsBySourceAndTime[src] = {};
         runsBySourceAndTime[src][minuteKey] = (runsBySourceAndTime[src][minuteKey] || 0) + 1;
@@ -318,7 +318,8 @@ const Admin = () => {
       allRuns.forEach((item) => {
         const src = item.source || "Unbekannt";
         const time = new Date(item.created_at);
-        const minuteKey = new Date(time.getFullYear(), time.getMonth(), time.getDate(), time.getHours(), time.getMinutes()).toISOString();
+        // Use UTC to avoid timezone issues
+        const minuteKey = new Date(Date.UTC(time.getUTCFullYear(), time.getUTCMonth(), time.getUTCDate(), time.getUTCHours(), time.getUTCMinutes())).toISOString();
         
         if (!allRunsByTime[minuteKey]) {
           allRunsByTime[minuteKey] = { count: 0, sources: new Set() };
