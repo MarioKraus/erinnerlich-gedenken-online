@@ -119,12 +119,25 @@ interface SourceStats {
   count: number;
   lastImportCount: number;
   lastImportAt: string | null;
+  lastRunAt: string | null;
+  lastRunStatus: string | null;
 }
 
 interface ScrapeRun {
   source: string;
   scrape_time: string;
   count: number;
+}
+
+interface ScraperRun {
+  id: string;
+  source: string;
+  started_at: string;
+  completed_at: string | null;
+  status: string;
+  entries_found: number;
+  entries_new: number;
+  error_message: string | null;
 }
 
 interface CronJob {
@@ -251,11 +264,26 @@ const Admin = () => {
         }
       }
 
+      // Get last run per source from scraper_runs table
+      const { data: scraperRuns } = await supabase
+        .from("scraper_runs")
+        .select("source, started_at, status")
+        .order("started_at", { ascending: false });
+      
+      const lastRunBySource: Record<string, { started_at: string; status: string }> = {};
+      (scraperRuns || []).forEach((run: { source: string; started_at: string; status: string }) => {
+        if (!lastRunBySource[run.source]) {
+          lastRunBySource[run.source] = { started_at: run.started_at, status: run.status };
+        }
+      });
+
       const stats: SourceStats[] = NEWSPAPER_SOURCES.map((source) => ({
         source: source.name,
         count: countMap[source.name] || 0,
         lastImportCount: lastImportMap[source.name]?.count || 0,
         lastImportAt: lastImportMap[source.name]?.lastAt || lastImportBySourceAll[source.name] || null,
+        lastRunAt: lastRunBySource[source.name]?.started_at || null,
+        lastRunStatus: lastRunBySource[source.name]?.status || null,
       }));
 
       return stats;
@@ -1213,16 +1241,33 @@ const Admin = () => {
                             <span className="font-medium text-foreground">{stats?.count || 0}</span> Einträge
                           </p>
                           {stats?.lastImportCount && stats.lastImportCount > 0 ? (
-                            <p className="text-green-600">
+                            <p className="text-green-600 dark:text-green-400">
                               +{stats.lastImportCount} in letzten 48h
                             </p>
                           ) : (
                             <p className="text-muted-foreground/60">Keine neuen in 48h</p>
                           )}
+                          {/* Last Run (cron execution) */}
+                          {stats?.lastRunAt && (
+                            <p className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Lauf: {new Date(stats.lastRunAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              {stats.lastRunStatus === 'success' && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1 text-green-600 border-green-600 dark:text-green-400 dark:border-green-400">OK</Badge>
+                              )}
+                              {stats.lastRunStatus === 'error' && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1 text-destructive border-destructive">Fehler</Badge>
+                              )}
+                            </p>
+                          )}
+                          {/* Last Import (new data found) */}
                           {stats?.lastImportAt && (
                             <p className="text-muted-foreground/80">
-                              Letzter: {new Date(stats.lastImportAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              Import: {new Date(stats.lastImportAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                             </p>
+                          )}
+                          {!stats?.lastRunAt && !stats?.lastImportAt && (
+                            <p className="text-muted-foreground/60">Noch kein Lauf</p>
                           )}
                         </div>
                       </div>

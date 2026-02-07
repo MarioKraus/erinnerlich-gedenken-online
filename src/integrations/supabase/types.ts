@@ -168,6 +168,39 @@ export type Database = {
         }
         Relationships: []
       }
+      scraper_runs: {
+        Row: {
+          completed_at: string | null
+          entries_found: number | null
+          entries_new: number | null
+          error_message: string | null
+          id: string
+          source: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          entries_found?: number | null
+          entries_new?: number | null
+          error_message?: string | null
+          id?: string
+          source: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          entries_found?: number | null
+          entries_new?: number | null
+          error_message?: string | null
+          id?: string
+          source?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
       scraper_settings: {
         Row: {
           created_at: string
