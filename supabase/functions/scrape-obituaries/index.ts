@@ -905,10 +905,34 @@ Deno.serve(async (req) => {
 
     for (let i = 0; i < urlsToScrape.length; i++) {
       const source = urlsToScrape[i];
+      
+      // Create a scraper_runs entry for this source
+      let runId: string | null = null;
+      try {
+        const { data: runData } = await supabase
+          .from('scraper_runs')
+          .insert({
+            source: source.name,
+            status: 'running',
+            started_at: new Date().toISOString()
+          })
+          .select('id')
+          .single();
+        runId = runData?.id || null;
+      } catch (e) {
+        console.log('Could not create scraper_runs entry:', e);
+      }
 
       if (Date.now() - startedAt > MAX_RUNTIME_MS) {
         hardStopReason = 'Zeitlimit erreicht – bitte erneut starten (wird in Batches verarbeitet).';
         results.errors.push(hardStopReason);
+        // Update run status
+        if (runId) {
+          await supabase
+            .from('scraper_runs')
+            .update({ status: 'error', completed_at: new Date().toISOString(), error_message: hardStopReason })
+            .eq('id', runId);
+        }
         break;
       }
 
@@ -943,6 +967,18 @@ Deno.serve(async (req) => {
         if (!markdown) {
           console.log(`No markdown content from ${source.name}`);
           results.bySource[source.name] = { parsed: 0, inserted: 0 };
+          // Update run status - success but no content
+          if (runId) {
+            await supabase
+              .from('scraper_runs')
+              .update({ 
+                status: 'success', 
+                completed_at: new Date().toISOString(),
+                entries_found: 0,
+                entries_new: 0
+              })
+              .eq('id', runId);
+          }
           continue;
         }
 
@@ -1007,9 +1043,34 @@ Deno.serve(async (req) => {
             results.skipped++;
           }
         }
+        
+        // Update run status - success
+        if (runId) {
+          await supabase
+            .from('scraper_runs')
+            .update({ 
+              status: 'success', 
+              completed_at: new Date().toISOString(),
+              entries_found: obituaries.length,
+              entries_new: results.bySource[source.name]?.inserted || 0
+            })
+            .eq('id', runId);
+        }
       } catch (sourceError) {
         const errorMsg = sourceError instanceof Error ? sourceError.message : 'Unknown error';
         console.error(`Error processing ${source.name}:`, errorMsg);
+        
+        // Update run status - error
+        if (runId) {
+          await supabase
+            .from('scraper_runs')
+            .update({ 
+              status: 'error', 
+              completed_at: new Date().toISOString(),
+              error_message: errorMsg
+            })
+            .eq('id', runId);
+        }
 
         if (errorMsg === 'INSUFFICIENT_CREDITS') {
           hardStopReason = 'Scraping-Kontingent ist aufgebraucht. Bitte Kontingent erhöhen oder später erneut versuchen.';
