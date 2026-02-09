@@ -175,13 +175,15 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
     // Remove common source attribution patterns like "von Süddeutsche Zeitung", "von OFOP", etc.
     const sourcePatterns = [
       // Specific source abbreviations and names (case-insensitive)
-      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|OFHA|BOWO|OF|GESAMT|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|Rhein-Hunsrück-Zeitung|Rhein-Lahn-Zeitung|Nahe-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|Trierischer Volksfreund|Trierischer|trierischer|Saarbrücker|saarbruecker|FNP|Mindelheimer|GmbH).*$/i,
+      /\s+von\s+(Süddeutsche Zeitung|Tagesspiegel|Rheinische Post|Sächsische Zeitung|OFOP|OFHA|OFMF|BOWO|HUW|OF|GESAMT|Peiner Allgemeine Zeitung|Ostsee-Zeitung|Kieler Nachrichten|Märkische[rn]? Allgemeine[rn]? Zeitung|Aller Zeitung|Eichsfelder Tageblatt|Münchner Merkur|HAZ|WAZ|Hamburger Abendblatt|Frankfurter Allgemeine|Frankfurter Rundschau|Stuttgarter Zeitung|Weser Kurier|Ruhr Nachrichten|Neue Westfälische|Westfälische Nachrichten|Mannheimer Morgen|Augsburger Allgemeine|Nürnberger Nachrichten|General-Anzeiger|Rhein-Zeitung|Rhein-Hunsrück-Zeitung|Rhein-Lahn-Zeitung|Nahe-Zeitung|BNN|Niederrhein Nachrichten|Wuppertaler Rundschau|Leipziger Volkszeitung|Trauer-Anzeigen|Kölner Stadt-Anzeiger|merkurtz|trauer\.de|Mainpost|Main-Post|Trierischer Volksfreund|Trierischer|trierischer|Saarbrücker|saarbruecker|FNP|Mindelheimer|Medienhaus Bauer|GmbH).*$/i,
       // Freie Presse Sachsen regional editions (cities as source identifiers)
-      /\s+von\s+(Aue|Marienberg|Zwickau|Freiberg|Glauchau|Hohenstein-Ernstthal|Mittweida|Plauen|Schwarzenberg|Stollberg|Werdau|Zschopau|Chemnitz|Annaberg|Auerbach|Oelsnitz|Reichenbach|Crimmitschau|Limbach-Oberfrohna|Frankenberg|Flöha|Döbeln|Brand-Erbisdorf|Olbernhau|Burgstädt)$/i,
+      /\s+von\s+(Aue|Marienberg|Zwickau|Freiberg|Glauchau|Hohenstein-Ernstthal|Mittweida|Plauen|Schwarzenberg|Stollberg|Werdau|Zschopau|Chemnitz|Annaberg|Auerbach|Oelsnitz|Reichenbach|Crimmitschau|Limbach-Oberfrohna|Frankenberg|Flöha|Döbeln|Brand-Erbisdorf|Olbernhau|Burgstädt|Rochlitz|Oberes Vogtland|Augsburg-Land)$/i,
+      // Nordkurier regional editions (cities/regions)
+      /\s+von\s+(Güstrow und Bützow|Parchim und Lübz)$/i,
       // Additional specific newspaper names
-      /\s+von\s+(Aichacher Nachrichten|Allgemeine Zeitung Alzey|Allgemeine Zeitung Mainz|Darmstädter Echo|Der Prignitzer|Die Glocke|Die Harke|Dill Block|Donau Zeitung|Donauwörther Zeitung|Friedberger Allgemeine|Groß-Gerauer Echo|Günzburger Zeitung|Hochheimer Zeitung|Illertisser Zeitung|Lübecker Nachrichten|Mittelschwäbische Nachrichten|Nassauische Neue Presse|Neu-Ulmer Zeitung|Neuburger Rundschau|Norddeutsche Neueste Nachrichten|Nordkurier Demminer Zeitung|Nordkurier Grosso|Nordkurier Müritz-Zeitung|Nordkurier Neubrandenburger Zeitung|Nordkurier Vorpommern Kurier|Offenbach|Ostfriesischer Kurier|Rieser Nachrichten|Schaumburger Nachrichten|Stadtspiegel Bottrop|Stadtspiegel Essen|Trauer Vest|Uckermark Kurier Prenzlauer Zeitung|Uckermark Kurier Templiner Zeitung|Westerwälder Zeitung|Wetzlarer Neue Zeitung|Wiesbadener Kurier).*$/i,
-      // Generic pattern: "von [Name] Zeitung/Nachrichten/etc."
-      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung|Volksfreund|Echo|Presse|Block).*$/i,
+      /\s+von\s+(Aichacher Nachrichten|Allgemeine Zeitung Alzey|Allgemeine Zeitung Mainz|Darmstädter Echo|Der Prignitzer|Die Glocke|Die Harke|Dill Block|Donau Zeitung|Donauwörther Zeitung|Fränkische Nachrichten|Friedberger Allgemeine|Groß-Gerauer Echo|Günzburger Zeitung|Hochheimer Zeitung|Illertisser Zeitung|Lübecker Nachrichten|Mittelschwäbische Nachrichten|Münsterland Zeitung|Nassauische Neue Presse|Neu-Ulmer Zeitung|Neuburger Rundschau|Norddeutsche Neueste Nachrichten|Nordkurier Demminer Zeitung|Nordkurier Grosso|Nordkurier Haff-Zeitung|Nordkurier Mecklenburger Schweiz|Nordkurier Müritz-Zeitung|Nordkurier Neubrandenburger Zeitung|Nordkurier Pasewalker Zeitung|Nordkurier Strelitzer Zeitung|Nordkurier Vorpommern Kurier|Odenwälder Echo|Offenbach|Ostfriesischer Kurier|Rieser Nachrichten|Rüsselsheimer Echo|Schaumburger Nachrichten|Schaumburger Zeitung|Stadtspiegel Bottrop|Stadtspiegel Essen|Trauer Vest|Uckermark Kurier Prenzlauer Zeitung|Uckermark Kurier Templiner Zeitung|Wertinger Zeitung|Westerwälder Zeitung|Wetzlarer Neue Zeitung|Wiesbadener Kurier|Zeitung für die Landeshauptstadt|Mindelheimer Zeitung).*$/i,
+      // Generic pattern: "von [Name] Zeitung/Nachrichten/etc." - catches future unknown sources
+      /\s+von\s+[A-Za-zäöüÄÖÜß\-]+(?:\s+[A-Za-zäöüÄÖÜß\-]+)?\s*(Zeitung|Nachrichten|Tageblatt|Anzeiger|Post|Kurier|Abendblatt|Rundschau|Allgemeine|Volkszeitung|Volksfreund|Echo|Presse|Block).*$/i,
       // Nordkurier sub-editions pattern
       /\s+von\s+Nordkurier\s+.*$/i,
       // Uckermark Kurier pattern
@@ -190,6 +192,8 @@ function parseObituariesFromMarkdown(markdown: string, source: string): ScrapedO
       /\s+von\s+Stadtspiegel\s+.*$/i,
       // Company names
       /\s+von\s+[A-Za-zäöüÄÖÜß\-]+\s*GmbH.*$/i,
+      // Date-based junk patterns like "von Juni 2013"
+      /\s+von\s+(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember)\s+\d{4}$/i,
     ];
     
     let cleanedName = name;
