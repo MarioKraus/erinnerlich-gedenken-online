@@ -160,6 +160,10 @@ const Admin = () => {
   const [todayExpanded, setTodayExpanded] = useState(false);
   const [scrapeHistoryExpanded, setScrapeHistoryExpanded] = useState(true);
   const [cronJobsExpanded, setCronJobsExpanded] = useState(true);
+  const [scrapeHistoryCardExpanded, setScrapeHistoryCardExpanded] = useState(true);
+  const [cronJobsCardExpanded, setCronJobsCardExpanded] = useState(true);
+  const [manualScrapingCardExpanded, setManualScrapingCardExpanded] = useState(true);
+  const [recentImportsCardExpanded, setRecentImportsCardExpanded] = useState(true);
   
   // Historical scraping state
   const [historicalSource, setHistoricalSource] = useState<string>("");
@@ -966,17 +970,21 @@ const Admin = () => {
           </Card>
         </div>
 
-        {/* Scrape History */}
+        <Collapsible open={scrapeHistoryCardExpanded} onOpenChange={setScrapeHistoryCardExpanded}>
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="h-5 w-5" />
-              Scrape-Historie
-            </CardTitle>
+          <CardHeader className="cursor-pointer" onClick={() => setScrapeHistoryCardExpanded(!scrapeHistoryCardExpanded)}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Scrape-Historie
+              </CardTitle>
+              {scrapeHistoryCardExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
             <CardDescription>
               Die letzten 3 Scrape-Läufe pro Quelle und für den gesamten Cron-Job.
             </CardDescription>
           </CardHeader>
+          <CollapsibleContent>
           <CardContent className="space-y-6">
             {/* Overall Cron Runs */}
             <div>
@@ -1024,9 +1032,32 @@ const Admin = () => {
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {NEWSPAPER_SOURCES.map((source) => {
                     const runs = scrapeHistory?.bySource[source.name];
+                    const stats = getSourceStatsForName(source.name);
                     return (
                       <div key={source.id} className="p-3 bg-muted/30 rounded-lg">
                         <h4 className="text-sm font-medium mb-2">{source.name}</h4>
+                        <div className="space-y-1.5 text-xs text-muted-foreground mb-2">
+                          {stats?.lastRunAt && (
+                            <p className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Lauf: {new Date(stats.lastRunAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                              {stats.lastRunStatus === 'success' && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1 text-green-600 border-green-600 dark:text-green-400 dark:border-green-400">OK</Badge>
+                              )}
+                              {stats.lastRunStatus === 'error' && (
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 ml-1 text-destructive border-destructive">Fehler</Badge>
+                              )}
+                            </p>
+                          )}
+                          {stats?.lastImportAt && (
+                            <p className="text-muted-foreground/80">
+                              Import: {new Date(stats.lastImportAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                          {!stats?.lastRunAt && !stats?.lastImportAt && (
+                            <p className="text-muted-foreground/60">Noch kein Lauf</p>
+                          )}
+                        </div>
                         {runs && runs.length > 0 ? (
                           <div className="space-y-1.5">
                             {runs.map((run, idx) => (
@@ -1046,7 +1077,7 @@ const Admin = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-xs text-muted-foreground">Keine Läufe</p>
+                          <p className="text-xs text-muted-foreground">Keine Imports</p>
                         )}
                       </div>
                     );
@@ -1055,19 +1086,25 @@ const Admin = () => {
               </CollapsibleContent>
             </Collapsible>
           </CardContent>
+          </CollapsibleContent>
         </Card>
+        </Collapsible>
 
-        {/* All pg_cron Jobs Overview */}
+        <Collapsible open={cronJobsCardExpanded} onOpenChange={setCronJobsCardExpanded}>
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Timer className="h-5 w-5" />
-              Alle pg_cron Jobs
-            </CardTitle>
+          <CardHeader className="cursor-pointer" onClick={() => setCronJobsCardExpanded(!cronJobsCardExpanded)}>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Timer className="h-5 w-5" />
+                Alle pg_cron Jobs
+              </CardTitle>
+              {cronJobsCardExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
             <CardDescription>
               Übersicht aller aktiven und inaktiven Cron-Jobs in der Datenbank.
             </CardDescription>
           </CardHeader>
+          <CollapsibleContent>
           <CardContent>
             <div className="flex items-center justify-between mb-4">
               <Button
@@ -1169,16 +1206,22 @@ const Admin = () => {
               </div>
             )}
           </CardContent>
+          </CollapsibleContent>
         </Card>
+        </Collapsible>
 
-        {/* Manual Scraping - All Sources */}
+        <Collapsible open={manualScrapingCardExpanded} onOpenChange={setManualScrapingCardExpanded}>
         <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Manuelles Scraping</CardTitle>
+          <CardHeader className="cursor-pointer" onClick={() => setManualScrapingCardExpanded(!manualScrapingCardExpanded)}>
+            <div className="flex items-center justify-between">
+              <CardTitle>Manuelles Scraping</CardTitle>
+              {manualScrapingCardExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
             <CardDescription>
               {NEWSPAPER_SOURCES.length} konfigurierte Quellen. Klicken Sie auf eine Quelle, um sie einzeln zu scrapen.
             </CardDescription>
           </CardHeader>
+          <CollapsibleContent>
           <CardContent>
             <div className="flex flex-wrap gap-4 mb-6">
               <Button
@@ -1289,7 +1332,9 @@ const Admin = () => {
               })}
             </div>
           </CardContent>
+          </CollapsibleContent>
         </Card>
+        </Collapsible>
 
         {/* Historical Scraping */}
         <Card className="mb-8">
@@ -1342,14 +1387,18 @@ const Admin = () => {
           </CardContent>
         </Card>
 
-        {/* Recent Obituaries - Last 48 hours */}
+        <Collapsible open={recentImportsCardExpanded} onOpenChange={setRecentImportsCardExpanded}>
         <Card>
-          <CardHeader>
-            <CardTitle>Zuletzt importiert</CardTitle>
+          <CardHeader className="cursor-pointer" onClick={() => setRecentImportsCardExpanded(!recentImportsCardExpanded)}>
+            <div className="flex items-center justify-between">
+              <CardTitle>Zuletzt importiert</CardTitle>
+              {recentImportsCardExpanded ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
+            </div>
             <CardDescription>
               Traueranzeigen der letzten 48 Stunden ({obituaryStats?.recentCount || 0} Einträge).
             </CardDescription>
           </CardHeader>
+          <CollapsibleContent>
           <CardContent>
             {obituaryStats?.recent && obituaryStats.recent.length > 0 ? (
               (() => {
@@ -1494,7 +1543,9 @@ const Admin = () => {
               </div>
             )}
           </CardContent>
+          </CollapsibleContent>
         </Card>
+        </Collapsible>
       </div>
     </Layout>
   );
