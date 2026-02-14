@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAdmin } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,28 +7,39 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Require admin authentication
+    await requireAdmin(req);
+
     const body = await req.json();
     const { cron_interval, is_active } = body;
     
-    // Create Supabase client with service role for database operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Validate cron_interval format if provided
+    if (cron_interval) {
+      const cronParts = cron_interval.trim().split(/\s+/);
+      if (cronParts.length !== 5) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Invalid cron expression format" }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Handle pause/activate toggle
     if (typeof is_active === 'boolean') {
       console.log(`Toggling cron job active state to: ${is_active}`);
       
       if (is_active) {
-        // Reactivate: Get current cron_interval and schedule the job
         const { data: settings, error: fetchError } = await supabase
           .from('scraper_settings')
           .select('cron_interval')
@@ -40,7 +52,6 @@ Deno.serve(async (req) => {
         
         const cronExpression = settings?.cron_interval || '33 13 * * *';
         
-        // Schedule the cron job
         const { error: scheduleError } = await supabase.rpc('schedule_scrape_job', {
           cron_expression: cronExpression,
           function_url: `${supabaseUrl}/functions/v1/scrape-obituaries`,
@@ -54,7 +65,6 @@ Deno.serve(async (req) => {
         
         console.log('Cron job reactivated with schedule:', cronExpression);
       } else {
-        // Pause: Unschedule the job
         const { error: unscheduleError } = await supabase.rpc('unschedule_scrape_job');
         if (unscheduleError) {
           console.log('Note: Could not unschedule job:', unscheduleError.message);
@@ -63,7 +73,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Update is_active in scraper_settings
       const { error: updateError } = await supabase
         .from('scraper_settings')
         .update({ 
@@ -86,7 +95,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Handle cron interval update
     if (!cron_interval) {
       return new Response(
         JSON.stringify({ success: false, error: "cron_interval or is_active is required" }),
@@ -96,13 +104,11 @@ Deno.serve(async (req) => {
 
     console.log(`Updating cron schedule to: ${cron_interval}`);
 
-    // First, unschedule the existing job if it exists
     const { error: unscheduleError } = await supabase.rpc('unschedule_scrape_job');
     if (unscheduleError) {
       console.log('Note: Could not unschedule existing job (may not exist):', unscheduleError.message);
     }
 
-    // Schedule new cron job
     const { error: scheduleError } = await supabase.rpc('schedule_scrape_job', {
       cron_expression: cron_interval,
       function_url: `${supabaseUrl}/functions/v1/scrape-obituaries`,
@@ -114,7 +120,6 @@ Deno.serve(async (req) => {
       throw new Error(`Failed to schedule cron job: ${scheduleError.message}`);
     }
 
-    // Update scraper_settings table (also ensure is_active is true when changing interval)
     const { error: updateError } = await supabase
       .from('scraper_settings')
       .update({ 
@@ -139,13 +144,12 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message === 'Unauthorized' ? 401 : message.startsWith('Forbidden') ? 403 : 500;
     console.error('Error updating cron schedule:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: message }),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

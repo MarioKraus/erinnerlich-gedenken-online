@@ -339,7 +339,41 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      condolences_public: {
+        Row: {
+          author_name: string | null
+          created_at: string | null
+          id: string | null
+          is_approved: boolean | null
+          message: string | null
+          obituary_id: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          message?: string | null
+          obituary_id?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          created_at?: string | null
+          id?: string | null
+          is_approved?: boolean | null
+          message?: string | null
+          obituary_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "condolences_obituary_id_fkey"
+            columns: ["obituary_id"]
+            isOneToOne: false
+            referencedRelation: "obituaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       check_rate_limit: {

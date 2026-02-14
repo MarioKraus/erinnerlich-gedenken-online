@@ -1,3 +1,5 @@
+import { requireAdmin } from "../_shared/auth.ts";
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -9,6 +11,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require admin authentication
+    await requireAdmin(req);
+
     const { url, options } = await req.json();
 
     if (!url) {
@@ -65,11 +70,12 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to scrape';
+    const status = message === 'Unauthorized' ? 401 : message.startsWith('Forbidden') ? 403 : 500;
     console.error('Error scraping:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Failed to scrape';
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: message }),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
