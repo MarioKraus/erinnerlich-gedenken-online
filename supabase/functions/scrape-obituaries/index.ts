@@ -800,6 +800,52 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Authentication: verify the caller is either a scheduled cron job or an authenticated admin
+    const authHeader = req.headers.get('Authorization');
+    let isScheduledCall = false;
+    
+    // Try to parse body to check if scheduled
+    let bodyText = '';
+    try {
+      bodyText = await req.text();
+      const bodyCheck = JSON.parse(bodyText);
+      isScheduledCall = bodyCheck.scheduled === true;
+    } catch {
+      // Empty body is fine
+    }
+
+    if (!isScheduledCall) {
+      // Manual call - require admin authentication
+      if (!authHeader?.startsWith('Bearer ')) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      const userId = claimsData.claims.sub as string;
+      const serviceClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const { data: hasRole } = await serviceClient.rpc('has_role', { _user_id: userId, _role: 'admin' });
+      if (!hasRole) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Forbidden - Admin access required' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!firecrawlKey) {
       console.error('FIRECRAWL_API_KEY not configured');
@@ -813,9 +859,9 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let body = {};
+    let body: any = {};
     try {
-      body = await req.json();
+      body = bodyText ? JSON.parse(bodyText) : {};
     } catch {
       // Empty body is fine
     }

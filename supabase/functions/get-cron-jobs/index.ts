@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireAdmin } from "../_shared/auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,32 +12,28 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require admin authentication
+    await requireAdmin(req);
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Query cron jobs using the RPC function
     const { data: jobs, error } = await supabase.rpc('get_cron_jobs');
 
     if (error) {
       console.error('Error fetching cron jobs:', error);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: error.message,
-          jobs: []
-        }),
+        JSON.stringify({ success: false, error: error.message, jobs: [] }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse command to extract useful info
     const parsedJobs = (jobs || []).map((job: any) => {
       let targetFunction = 'Unknown';
       let targetSources: string[] = [];
       
-      // Extract function URL from command
       const urlMatch = job.command?.match(/url:='([^']+)'/);
       if (urlMatch) {
         const url = urlMatch[1];
@@ -44,7 +41,6 @@ Deno.serve(async (req) => {
         targetFunction = functionName || url;
       }
       
-      // Extract sources from body if present
       const sourcesMatch = job.command?.match(/"sources":\s*\[([^\]]+)\]/);
       if (sourcesMatch) {
         targetSources = sourcesMatch[1]
@@ -64,22 +60,17 @@ Deno.serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        jobs: parsedJobs 
-      }),
+      JSON.stringify({ success: true, jobs: parsedJobs }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    const status = message === 'Unauthorized' ? 401 : message.startsWith('Forbidden') ? 403 : 500;
     console.error('Error fetching cron jobs:', error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        jobs: []
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ success: false, error: message, jobs: [] }),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

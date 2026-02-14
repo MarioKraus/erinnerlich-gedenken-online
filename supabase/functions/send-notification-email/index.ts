@@ -1,6 +1,6 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import { requireAdmin } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,15 +20,17 @@ interface Obituary {
   birth_date: string | null;
 }
 
-const handler = async (req: Request): Promise<Response> => {
-  // Handle CORS preflight
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("Starting send-notification-email function");
-
   try {
+    // Require admin authentication
+    await requireAdmin(req);
+
+    console.log("Starting send-notification-email function");
+
     const smtpHost = Deno.env.get("SMTP_HOST");
     const smtpPort = parseInt(Deno.env.get("SMTP_PORT") || "587");
     const smtpUsername = Deno.env.get("SMTP_USERNAME");
@@ -45,9 +47,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { agentId, obituaryIds }: NotificationRequest = await req.json();
 
+    // Validate inputs
+    if (!agentId || !Array.isArray(obituaryIds) || obituaryIds.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "agentId and obituaryIds are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     console.log(`Processing notification for agent ${agentId} with ${obituaryIds.length} obituaries`);
 
-    // Get agent details
     const { data: agent, error: agentError } = await supabase
       .from("search_agents")
       .select("*")
@@ -59,7 +68,6 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Search agent not found");
     }
 
-    // Get obituary details
     const { data: obituaries, error: obitsError } = await supabase
       .from("obituaries")
       .select("id, name, death_date, location, birth_date")
@@ -77,7 +85,6 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    // Build email content
     const agentName = agent.name || "Ihr Suchagent";
     const obituaryList = (obituaries as Obituary[])
       .map((o) => {
@@ -128,7 +135,6 @@ ${obituaryList}
 Besuchen Sie https://traueranzeigen.lovable.app/suche für weitere Details.
     `;
 
-    // Send email via SMTP
     console.log(`Connecting to SMTP server ${smtpHost}:${smtpPort}`);
     
     const client = new SMTPClient({
@@ -157,20 +163,15 @@ Besuchen Sie https://traueranzeigen.lovable.app/suche für weitere Details.
 
     return new Response(
       JSON.stringify({ success: true, sent: 1, recipient: agent.email }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: any) {
+    const message = error?.message || 'Unknown error';
+    const status = message === 'Unauthorized' ? 401 : message.startsWith('Forbidden') ? 403 : 500;
     console.error("Error in send-notification-email:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: message }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-};
-
-serve(handler);
+});

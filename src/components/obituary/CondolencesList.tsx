@@ -14,7 +14,7 @@ const CondolencesList = ({ obituaryId }: CondolencesListProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("condolences")
-        .select("*")
+        .select("id, obituary_id, author_name, message, is_approved, created_at")
         .eq("obituary_id", obituaryId)
         .eq("is_approved", true)
         .order("created_at", { ascending: false });
