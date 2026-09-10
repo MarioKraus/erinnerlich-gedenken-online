@@ -1667,6 +1667,37 @@ const Admin = () => {
           </CollapsibleContent>
         </Card>
         </Collapsible>
+
+        {/* Condolences moderation */}
+        <Collapsible open={condolencesCardExpanded} onOpenChange={setCondolencesCardExpanded} className="mt-8">
+          <Card>
+            <CardHeader>
+              <CollapsibleTrigger className="w-full text-left">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5" />
+                      Kondolenzen
+                    </CardTitle>
+                    <CardDescription>
+                      Eingereichte Kondolenzen prüfen, freigeben oder löschen.
+                    </CardDescription>
+                  </div>
+                  {condolencesCardExpanded ? (
+                    <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+              </CollapsibleTrigger>
+            </CardHeader>
+            <CollapsibleContent>
+              <CardContent>
+                <CondolencesSection />
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
       </div>
     </Layout>
   );
