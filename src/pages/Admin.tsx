@@ -817,13 +817,11 @@ const Admin = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              const isAdmin = localStorage.getItem("isAdmin") === "true";
-              localStorage.setItem("isAdmin", isAdmin ? "false" : "true");
-              window.location.reload();
+            onClick={async () => {
+              await supabase.auth.signOut();
             }}
           >
-            {localStorage.getItem("isAdmin") === "true" ? "Admin-Modus: AN" : "Admin-Modus: AUS"}
+            Abmelden
           </Button>
         </div>
 
