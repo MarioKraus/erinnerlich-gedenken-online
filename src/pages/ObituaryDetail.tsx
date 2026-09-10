@@ -104,8 +104,8 @@ const ObituaryDetail = () => {
   const [condolenceModalOpen, setCondolenceModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   
-  // Simple admin check - in production, use proper auth
-  const isAdmin = window.location.search.includes("admin=true") || localStorage.getItem("isAdmin") === "true";
+  // Real admin check via authenticated session + admin role
+  const { isAdmin } = useAdmin();
 
   useEffect(() => {
     const fetchObituary = async () => {
