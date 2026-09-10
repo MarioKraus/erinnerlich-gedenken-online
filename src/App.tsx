@@ -11,6 +11,7 @@ import CreateObituary from "./pages/CreateObituary";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import Impressum from "./pages/Impressum";
+import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
 
