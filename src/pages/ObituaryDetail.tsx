@@ -16,6 +16,7 @@ import CondolencesList from "@/components/obituary/CondolencesList";
 import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
 import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
 import { getAvatarOverlayColor, getImageColorFilter, getPageOverlayGradient } from "@/lib/colorVariations";
+import { useAdmin } from "@/hooks/useAdmin";
 
 // Map source names to their base URLs for linking
 const SOURCE_URL_MAP: Record<string, string> = {
