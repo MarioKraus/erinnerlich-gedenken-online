@@ -164,6 +164,7 @@ const Admin = () => {
   const [cronJobsCardExpanded, setCronJobsCardExpanded] = useState(true);
   const [manualScrapingCardExpanded, setManualScrapingCardExpanded] = useState(true);
   const [recentImportsCardExpanded, setRecentImportsCardExpanded] = useState(true);
+  const [condolencesCardExpanded, setCondolencesCardExpanded] = useState(true);
   
   // Historical scraping state
   const [historicalSource, setHistoricalSource] = useState<string>("");
