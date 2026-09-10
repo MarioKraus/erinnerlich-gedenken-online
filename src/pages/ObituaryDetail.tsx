@@ -16,6 +16,7 @@ import CondolencesList from "@/components/obituary/CondolencesList";
 import bgObituaryDetail from "@/assets/bg-obituary-detail.jpg";
 import avatarForestBg from "@/assets/avatar-forest-bg.jpg";
 import { getAvatarOverlayColor, getImageColorFilter, getPageOverlayGradient } from "@/lib/colorVariations";
+import { useAdmin } from "@/hooks/useAdmin";
 
 // Map source names to their base URLs for linking
 const SOURCE_URL_MAP: Record<string, string> = {
@@ -104,8 +105,8 @@ const ObituaryDetail = () => {
   const [condolenceModalOpen, setCondolenceModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   
-  // Simple admin check - in production, use proper auth
-  const isAdmin = window.location.search.includes("admin=true") || localStorage.getItem("isAdmin") === "true";
+  // Real admin check via authenticated session + admin role
+  const { isAdmin } = useAdmin();
 
   useEffect(() => {
     const fetchObituary = async () => {
