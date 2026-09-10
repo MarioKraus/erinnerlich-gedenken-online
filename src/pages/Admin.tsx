@@ -12,6 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, Play, RefreshCw, Database, Clock, AlertCircle, ExternalLink, ChevronDown, ChevronUp, Settings, Pause, History, Timer, Trash2, Calendar, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAdmin } from "@/hooks/useAdmin";
+import { Navigate } from "react-router-dom";
+import { CheckCircle2, MessageSquare } from "lucide-react";
 
 // All configured newspaper sources - synced with edge function, sorted alphabetically
 const NEWSPAPER_SOURCES = [
