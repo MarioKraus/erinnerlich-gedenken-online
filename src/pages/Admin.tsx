@@ -783,6 +783,20 @@ const Admin = () => {
     </div>
   );
 
+  if (adminLoading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-24 flex justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!isAdmin) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
   return (
     <Layout>
       <Helmet>
