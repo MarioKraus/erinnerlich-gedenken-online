@@ -153,6 +153,7 @@ interface CronJob {
 const Admin = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin, loading: adminLoading } = useAdmin();
   const [isScrapingAll, setIsScrapingAll] = useState(false);
   const [scrapingSource, setScrapingSource] = useState<string | null>(null);
   const [scrapingSources, setScrapingSources] = useState<Set<string>>(new Set());
