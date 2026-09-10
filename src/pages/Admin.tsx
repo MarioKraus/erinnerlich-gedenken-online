@@ -787,6 +787,110 @@ const Admin = () => {
     </div>
   );
 
+  const CondolencesSection = () => {
+    const { data: condolences, isLoading } = useQuery({
+      queryKey: ["admin-condolences"],
+      queryFn: async () => {
+        const { data, error } = await supabase
+          .from("condolences")
+          .select("id, obituary_id, author_name, message, is_approved, created_at, obituaries(name)")
+          .order("created_at", { ascending: false })
+          .limit(200);
+        if (error) throw error;
+        return data as unknown as Array<{
+          id: string;
+          obituary_id: string;
+          author_name: string;
+          message: string;
+          is_approved: boolean;
+          created_at: string;
+          obituaries: { name: string } | null;
+        }>;
+      },
+    });
+
+    const approve = async (id: string) => {
+      const { error } = await supabase
+        .from("condolences")
+        .update({ is_approved: true })
+        .eq("id", id);
+      if (error) {
+        toast({ title: "Fehler", description: "Kondolenz konnte nicht freigegeben werden.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Freigegeben", description: "Die Kondolenz ist jetzt öffentlich sichtbar." });
+      queryClient.invalidateQueries({ queryKey: ["admin-condolences"] });
+    };
+
+    const remove = async (id: string) => {
+      const { error } = await supabase.from("condolences").delete().eq("id", id);
+      if (error) {
+        toast({ title: "Fehler", description: "Kondolenz konnte nicht gelöscht werden.", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Gelöscht", description: "Die Kondolenz wurde entfernt." });
+      queryClient.invalidateQueries({ queryKey: ["admin-condolences"] });
+    };
+
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+
+    if (!condolences || condolences.length === 0) {
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground py-8 justify-center">
+          <AlertCircle className="h-5 w-5" />
+          <p>Keine Kondolenzen vorhanden.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        {condolences.map((c) => (
+          <div key={c.id} className="p-4 border border-border rounded-lg space-y-2">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground">{c.author_name}</p>
+                <Link
+                  to={`/traueranzeige/${c.obituary_id}`}
+                  className="text-sm text-muted-foreground hover:text-primary hover:underline"
+                >
+                  {c.obituaries?.name || "Traueranzeige"}
+                </Link>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={c.is_approved ? "default" : "secondary"}>
+                  {c.is_approved ? "Freigegeben" : "Wartet auf Prüfung"}
+                </Badge>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(c.created_at).toLocaleString("de-DE")}
+                </span>
+              </div>
+            </div>
+            <p className="text-sm text-foreground whitespace-pre-line">{c.message}</p>
+            <div className="flex gap-2">
+              {!c.is_approved && (
+                <Button size="sm" onClick={() => approve(c.id)}>
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Freigeben
+                </Button>
+              )}
+              <Button size="sm" variant="destructive" onClick={() => remove(c.id)}>
+                <Trash2 className="h-4 w-4 mr-1" />
+                Löschen
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   if (adminLoading) {
     return (
       <Layout>
