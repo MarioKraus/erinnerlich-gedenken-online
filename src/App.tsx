@@ -27,6 +27,7 @@ const App = () => (
             <Route path="/suche" element={<Search />} />
             <Route path="/traueranzeige/:id" element={<ObituaryDetail />} />
             <Route path="/anzeige-erstellen" element={<CreateObituary />} />
+            <Route path="/admin/login" element={<Auth />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/impressum" element={<Impressum />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
