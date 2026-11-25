@@ -1,0 +1,2 @@
+DROP POLICY IF EXISTS "Service role can manage scraper_runs" ON public.scraper_runs;
+CREATE POLICY "Service role can manage scraper_runs" ON public.scraper_runs FOR ALL TO service_role USING (true) WITH CHECK (true);
